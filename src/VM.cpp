@@ -5,17 +5,14 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "DeviceInfo.h"
 
-const int N = 16;
-const std::string KERNEL_FILE("kernels/add.cl");
+const int QUEUE_DEPTH = 16;
+const std::string KERNEL_FILE("kernels/vm.cl");
 
 int main() {
-  int *a = new int[N];
-  int *b = new int[N];
-  for (int i = 0; i < N; ++i) {
-    a[i] = i;
-    b[i] = N - i;
-  }
+
+  DeviceInfo dInfo;
 
   try {
     /* Create a vector of available platforms. */
@@ -25,6 +22,10 @@ int main() {
     /* Create a vector of available devices on the platform. */
     std::vector<cl::Device> devices;
     platforms[0].getDevices(CL_DEVICE_TYPE_DEFAULT, &devices);
+    
+    /* Get the number of compute units for the first available device. */
+    DeviceInfo dInfo;
+    unsigned int computeUnits = dInfo.max_compute_units(devices[0]);
 
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
@@ -47,39 +48,44 @@ int main() {
     cl::Kernel kernel(program, "add");
     
     /* Create memory buffers. */
-    cl::Buffer aBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, N * sizeof(int));
-    cl::Buffer bBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, N * sizeof(int));
-    cl::Buffer resultBuffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, N * sizeof(int));
+    cl_uint2 *a = new cl_uint2[QUEUE_DEPTH];
+    cl_uint2 *b = new cl_uint2[QUEUE_DEPTH];
 
-    /* Copy the arrays 'a' and 'b' to the memory buffers. */
-    commandQueue.enqueueWriteBuffer(aBuffer, CL_TRUE, 0, N * sizeof(int), a);
-    commandQueue.enqueueWriteBuffer(bBuffer, CL_TRUE, 0, N * sizeof(int), b);
+    for (int i = 0; i < QUEUE_DEPTH; i++) {
+      a[i].x = 0;
+      a[i].y = 0;
+      b[i].x = 1;
+      b[i].y = 1;
+    }
+
+    cl::Buffer aBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, QUEUE_DEPTH * sizeof(cl_uint2));
+    cl::Buffer bBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, QUEUE_DEPTH * sizeof(cl_uint2));
+
+    commandQueue.enqueueWriteBuffer(aBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), a);
+    commandQueue.enqueueWriteBuffer(bBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), b);
 
     /* Set kernel arguments. */
     kernel.setArg(0, aBuffer);
     kernel.setArg(1, bBuffer);
-    kernel.setArg(2, resultBuffer);
 
     /* Run the kernel on NDRange. */
-    cl::NDRange global(N);
+    cl::NDRange global(computeUnits);
     cl::NDRange local(1);
     commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
     
     /* Wait for completion. */
     commandQueue.finish();
 
-    /* Get results. */
-    int *c = new int[N];
-    commandQueue.enqueueReadBuffer(resultBuffer, CL_TRUE, 0, N * sizeof(int), c);
+    commandQueue.enqueueReadBuffer(bBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), b);
 
-    for (int i = 0; i < N; ++i) {
-      std::cout << a[i] << " + " << b[i] << " = " << c[i] << std::endl;
+    /* Get results. */
+    std::cout << "------------" << std::endl;
+    for (int i = 0; i < QUEUE_DEPTH; i++) {
+      std::cout << b[i].x << " " << b[i].y << std::endl;
     }
 
-    /* Cleanup. */
     delete[] a;
     delete[] b;
-    delete[] c;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
   }
