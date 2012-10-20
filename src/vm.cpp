@@ -34,8 +34,7 @@ int main() {
 
     /* Read the kernel program source. */
     std::ifstream kernelSourceFile(KERNEL_FILE.c_str());
-    std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), 
-			     (std::istreambuf_iterator<char>()));
+    std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), (std::istreambuf_iterator<char>()));
     cl::Program::Sources source(1, std::make_pair(kernelSource.c_str(), kernelSource.length() + 1));
     
     /* Create a program in the context using the kernel source code. */
