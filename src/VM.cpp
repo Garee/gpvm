@@ -11,9 +11,6 @@ const int QUEUE_DEPTH = 16;
 const std::string KERNEL_FILE("kernels/vm.cl");
 
 int main() {
-
-  DeviceInfo dInfo;
-
   try {
     /* Create a vector of available platforms. */
     std::vector<cl::Platform> platforms;
@@ -25,7 +22,7 @@ int main() {
     
     /* Get the number of compute units for the first available device. */
     DeviceInfo dInfo;
-    unsigned int computeUnits = dInfo.max_compute_units(devices[0]);
+    int computeUnits = dInfo.max_compute_units(devices[0]);
 
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
@@ -48,25 +45,18 @@ int main() {
     cl::Kernel kernel(program, "add");
     
     /* Create memory buffers. */
-    cl_uint2 *a = new cl_uint2[QUEUE_DEPTH];
-    cl_uint2 *b = new cl_uint2[QUEUE_DEPTH];
+    cl_uint2 *queues = new cl_uint2[computeUnits * QUEUE_DEPTH];
 
-    for (int i = 0; i < QUEUE_DEPTH; i++) {
-      a[i].x = 0;
-      a[i].y = 0;
-      b[i].x = 1;
-      b[i].y = 1;
+    for (int i = 0; i < computeUnits * QUEUE_DEPTH; i++) {
+      queues[i].x = 0;
+      queues[i].y = 0;
     }
 
-    cl::Buffer aBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, QUEUE_DEPTH * sizeof(cl_uint2));
-    cl::Buffer bBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, QUEUE_DEPTH * sizeof(cl_uint2));
-
-    commandQueue.enqueueWriteBuffer(aBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), a);
-    commandQueue.enqueueWriteBuffer(bBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), b);
+    cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
 
     /* Set kernel arguments. */
-    kernel.setArg(0, aBuffer);
-    kernel.setArg(1, bBuffer);
+    kernel.setArg(0, queueBuffer);
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits);
@@ -75,17 +65,14 @@ int main() {
     
     /* Wait for completion. */
     commandQueue.finish();
-
-    commandQueue.enqueueReadBuffer(bBuffer, CL_TRUE, 0, QUEUE_DEPTH * sizeof(cl_uint2), b);
-
-    /* Get results. */
-    std::cout << "------------" << std::endl;
-    for (int i = 0; i < QUEUE_DEPTH; i++) {
-      std::cout << b[i].x << " " << b[i].y << std::endl;
+    
+    commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
+    for (int i = 0; i < computeUnits * QUEUE_DEPTH; i++) {
+	std::cout << queues[i].x << " " << queues[i].y << std::endl;
     }
 
-    delete[] a;
-    delete[] b;
+    /* Cleanup */
+    delete[] queues;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
   }
