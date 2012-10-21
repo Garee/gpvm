@@ -11,24 +11,35 @@ const int QUEUE_DEPTH = 16;
 const std::string KERNEL_FILE("kernels/vm.cl");
 
 int main() {
+  std::vector<cl::Platform> platforms;
+  std::vector<cl::Device> devices;
+  cl::Device device;
+  cl::Program program;
+
+  DeviceInfo dInfo;
+
   try {
     /* Create a vector of available platforms. */
-    std::vector<cl::Platform> platforms;
     cl::Platform::get(&platforms);
-
-    /* Create a vector of available devices on the platform. */
-    std::vector<cl::Device> devices;
-    platforms[0].getDevices(CL_DEVICE_TYPE_DEFAULT, &devices);
     
-    /* Get the number of compute units for the first available device. */
-    DeviceInfo dInfo;
-    int computeUnits = dInfo.max_compute_units(devices[0]);
+    /* Create a vector of available devices (GPU Priority). */
+    try {
+      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+    } catch (cl::Error error) {
+      platforms[0].getDevices(CL_DEVICE_TYPE_DEFAULT, &devices);
+    }
 
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
 
-    /* Create a command queue using the first available device. */
-    cl::CommandQueue commandQueue = cl::CommandQueue(context, devices[0]);
+    /* Use the first available device. */
+    device = devices[0];
+    
+    /* Get the number of compute units for the device. */
+    int computeUnits = dInfo.max_compute_units(device);
+
+    /* Create a command queue for the device. */
+    cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
     /* Read the kernel program source. */
     std::ifstream kernelSourceFile(KERNEL_FILE.c_str());
@@ -36,15 +47,15 @@ int main() {
     cl::Program::Sources source(1, std::make_pair(kernelSource.c_str(), kernelSource.length() + 1));
     
     /* Create a program in the context using the kernel source code. */
-    cl::Program program = cl::Program(context, source);
+    program = cl::Program(context, source);
     
     /* Build the program for the available devices. */
     program.build(devices);
 
-    /* Create the kernel. */
-    cl::Kernel kernel(program, "add");
+    /* Create the qtest kernel. */
+    cl::Kernel kernel(program, "qtest");
     
-    /* Create memory buffers. */
+    /* Allocate memory for the queues. */
     cl_uint2 *queues = new cl_uint2[computeUnits * QUEUE_DEPTH];
 
     for (int i = 0; i < computeUnits * QUEUE_DEPTH; i++) {
@@ -52,29 +63,29 @@ int main() {
       queues[i].y = 0;
     }
 
+    /* Create memory buffers on the device. */
     cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2));
     commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
 
     /* Set kernel arguments. */
     kernel.setArg(0, queueBuffer);
+    kernel.setArg(1, QUEUE_DEPTH);
 
     /* Run the kernel on NDRange. */
-    cl::NDRange global(computeUnits);
-    cl::NDRange local(1);
+    cl::NDRange global(computeUnits), local(1);
     commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
     
     /* Wait for completion. */
     commandQueue.finish();
     
+    /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
-    for (int i = 0; i < computeUnits * QUEUE_DEPTH; i++) {
-	std::cout << queues[i].x << " " << queues[i].y << std::endl;
-    }
 
     /* Cleanup */
     delete[] queues;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
+    std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
   }
 
   return 0;
