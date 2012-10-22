@@ -7,7 +7,7 @@
 #include <vector>
 #include "DeviceInfo.h"
 
-const int QUEUE_DEPTH = 16;
+const int QUEUE_SIZE = 16;
 const std::string KERNEL_FILE("kernels/vm.cl");
 
 int main() {
@@ -56,20 +56,27 @@ int main() {
     cl::Kernel kernel(program, "qtest");
     
     /* Allocate memory for the queues. */
-    cl_uint2 *queues = new cl_uint2[computeUnits * QUEUE_DEPTH];
+    cl_uint2 *queues = new cl_uint2[computeUnits * QUEUE_SIZE];
 
-    for (int i = 0; i < computeUnits * QUEUE_DEPTH; i++) {
+    /* Initialise queue elements to zero. */
+    for (int i = 0; i < computeUnits * QUEUE_SIZE; i++) {
       queues[i].x = 0;
       queues[i].y = 0;
     }
 
+    /* Initialise the head/tail index values. */
+    for (int i = 0; i < computeUnits; i++) {
+      queues[i * QUEUE_SIZE].x = 1;
+      queues[i * QUEUE_SIZE].y = 1;
+    }
+
     /* Create memory buffers on the device. */
-    cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2));
-    commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
+    cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_SIZE * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_SIZE * sizeof(cl_uint2), queues);
 
     /* Set kernel arguments. */
     kernel.setArg(0, queueBuffer);
-    kernel.setArg(1, QUEUE_DEPTH);
+    kernel.setArg(1, QUEUE_SIZE);
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits), local(1);
@@ -79,7 +86,13 @@ int main() {
     commandQueue.finish();
     
     /* Read the modified queue buffer. */
-    commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_DEPTH * sizeof(cl_uint2), queues);
+    commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_SIZE * sizeof(cl_uint2), queues);
+    for (int i = 0; i < computeUnits * QUEUE_SIZE; i++) {
+      if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
+      std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
+    }
+    std::cout << std::endl;
+
 
     /* Cleanup */
     delete[] queues;
