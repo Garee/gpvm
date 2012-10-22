@@ -64,13 +64,6 @@ int main() {
       queues[i].y = 0;
     }
 
-    /* Initialise the head/tail index values. */
-    for (int i = 0; i < computeUnits; i++) {
-      int rw_index = (i * QUEUE_SIZE) + QUEUE_SIZE - 1;
-      queues[rw_index].x = 0;
-      queues[rw_index].y = 0;
-    }
-
     /* Create memory buffers on the device. */
     cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_SIZE * sizeof(cl_uint2));
     commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_SIZE * sizeof(cl_uint2), queues);
@@ -88,12 +81,13 @@ int main() {
     
     /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_SIZE * sizeof(cl_uint2), queues);
+
+    /* Print the queues. */
     for (int i = 0; i < computeUnits * QUEUE_SIZE; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
-
 
     /* Cleanup */
     delete[] queues;
