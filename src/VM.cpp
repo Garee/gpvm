@@ -66,8 +66,9 @@ int main() {
 
     /* Initialise the head/tail index values. */
     for (int i = 0; i < computeUnits; i++) {
-      queues[i * QUEUE_SIZE].x = 1;
-      queues[i * QUEUE_SIZE].y = 1;
+      int rw_index = (i * QUEUE_SIZE) + QUEUE_SIZE - 1;
+      queues[rw_index].x = 0;
+      queues[rw_index].y = 0;
     }
 
     /* Create memory buffers on the device. */
