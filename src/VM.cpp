@@ -63,14 +63,28 @@ int main() {
       queues[i].x = 0;
       queues[i].y = 0;
     }
+    
+    /* Allocate memory for the queue details. Each vector stores the head index,
+       the tail index and the type of the last operation. */
+    cl_uint3 *queueDetails = new cl_uint3[computeUnits];
+
+    /* Initialise elements to zero. */
+    for (int i = 0; i < computeUnits; i++) {
+      queueDetails[i].x = 0; // Head
+      queueDetails[i].y = 0; // Tail
+      queueDetails[i].z = 0; // Type of last operation (r/w).
+    }
 
     /* Create memory buffers on the device. */
     cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * QUEUE_SIZE * sizeof(cl_uint2));
+    cl::Buffer queueDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, computeUnits * sizeof(cl_uint3));
     commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, computeUnits * QUEUE_SIZE * sizeof(cl_uint2), queues);
+    commandQueue.enqueueWriteBuffer(queueDetailsBuffer, CL_TRUE, 0, computeUnits * sizeof(cl_uint3), queueDetails);
 
     /* Set kernel arguments. */
     kernel.setArg(0, queueBuffer);
     kernel.setArg(1, QUEUE_SIZE);
+    kernel.setArg(2, queueDetailsBuffer);
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits), local(1);
