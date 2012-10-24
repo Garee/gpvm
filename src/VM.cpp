@@ -8,7 +8,10 @@
 #include "DeviceInfo.h"
 
 const int QUEUE_SIZE = 16;
-const std::string KERNEL_FILE("kernels/vm.cl");
+const char *KERNEL_FILE = "kernels/vm.cl";
+const char *KERNEL_MACROS = "-D QUEUE_SIZE=16";
+
+const int state = 1;
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -42,7 +45,7 @@ int main() {
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
     /* Read the kernel program source. */
-    std::ifstream kernelSourceFile(KERNEL_FILE.c_str());
+    std::ifstream kernelSourceFile(KERNEL_FILE);
     std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), (std::istreambuf_iterator<char>()));
     cl::Program::Sources source(1, std::make_pair(kernelSource.c_str(), kernelSource.length() + 1));
     
@@ -50,7 +53,7 @@ int main() {
     program = cl::Program(context, source);
     
     /* Build the program for the available devices. */
-    program.build(devices);
+    program.build(devices, KERNEL_MACROS);
 
     /* Create the qtest kernel. */
     cl::Kernel kernel(program, "qtest");
@@ -83,13 +86,13 @@ int main() {
 
     /* Set kernel arguments. */
     kernel.setArg(0, queueBuffer);
-    kernel.setArg(1, QUEUE_SIZE);
-    kernel.setArg(2, queueDetailsBuffer);
+    kernel.setArg(1, queueDetailsBuffer);
+    kernel.setArg(2, state);
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits), local(1);
     commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
-    
+
     /* Wait for completion. */
     commandQueue.finish();
     
@@ -100,6 +103,13 @@ int main() {
     for (int i = 0; i < computeUnits * QUEUE_SIZE; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
+    }
+    std::cout << std::endl;
+
+    commandQueue.enqueueReadBuffer(queueDetailsBuffer, CL_TRUE, 0, computeUnits * sizeof(cl_uint3), queueDetails);
+    std::cout << "---------------" << std::endl;
+    for (int i = 0; i < computeUnits; i++) {
+      std::cout << "(" << queueDetails[i].x << " " << queueDetails[i].y << " " << queueDetails[i].z << ")" << " ";
     }
     std::cout << std::endl;
 
