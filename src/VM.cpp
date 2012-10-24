@@ -7,11 +7,14 @@
 #include <vector>
 #include "DeviceInfo.h"
 
+const int READ = 0;
+const int WRITE = 1;
+
 const int QUEUE_SIZE = 16;
 const char *KERNEL_FILE = "kernels/vm.cl";
 const char *KERNEL_MACROS = "-D QUEUE_SIZE=16";
 
-const int state = 1;
+int state = WRITE;
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -91,7 +94,12 @@ int main() {
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits), local(1);
-    commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
+    int p = 7;
+    while (p--) {
+      commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
+      state = (state == WRITE) ? READ : WRITE;
+      kernel.setArg(2, state);
+    }
 
     /* Wait for completion. */
     commandQueue.finish();

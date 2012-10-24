@@ -16,6 +16,38 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails
 /* Simple kernel to test queue functionality. */
 __kernel void qtest(__global uint2 *q, __global uint3 *qDetails, const int state) {
   size_t id = get_global_id(0);;
+
+  uint2 x = 7;
+  if (state == WRITE) {
+    switch(id) {
+    case 0:
+      q_write(x, id, q, qDetails);
+      break;
+    case 1:
+      q_write(x, id, q, qDetails);
+      break;
+    case 2:
+      q_write(x, id, q, qDetails);
+      break;
+    case 3:
+      q_write(x, id, q, qDetails);
+      break;
+    }
+  } else {
+    switch(id) {
+    case 0:
+      break;
+    case 1:
+      q_read(&x, id, q, qDetails);
+      break;
+    case 2:
+      q_read(&x, id, q, qDetails);
+      break;
+    case 3:
+      q_read(&x, id, q, qDetails);
+      break;
+    }
+  }
 }
 
 
