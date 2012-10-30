@@ -17,8 +17,10 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails, int n, __global
   uint2 x;
   if (*state == WRITE) {
     q_write(9, gid, q, qDetails, n);
+    *state = READ;
   } else {
     q_read(&x, gid, q, qDetails, n);
+    *state = COMPLETE;
   }
 }
 

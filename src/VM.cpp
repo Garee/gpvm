@@ -10,10 +10,10 @@
 const int COMPLETE = -1;
 const int READ = 0;
 const int WRITE = 1;
-
 const int QUEUE_SIZE = 16;
-const char *KERNEL_FILE = "kernels/vm.cl";
+
 const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 -D COMPLETE=-1 -D READ=0 -D WRITE=1";
+const char *KERNEL_FILE = "kernels/vm.cl";
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -100,17 +100,16 @@ int main() {
     kernel.setArg(2, computeUnits);
     kernel.setArg(3, stateBuffer);
 
-    /* Run the kernel on NDRange. */
+    /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
 
+    /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
+      commandQueue.finish();
       commandQueue.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
     }
 
-    /* Wait for completion. */
-    commandQueue.finish();
-    
     /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(queueBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
 
