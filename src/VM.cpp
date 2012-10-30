@@ -82,16 +82,22 @@ int main() {
       queueDetails[i].z = 0; // Type of last operation (r/w).
     }
 
+    int *state = new int;
+    *state = WRITE;
+
     /* Create memory buffers on the device. */
     cl::Buffer queueBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
     cl::Buffer queueDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
+    cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(queueBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
     commandQueue.enqueueWriteBuffer(queueDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), queueDetails);
+    commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
 
     /* Set kernel arguments. */
     kernel.setArg(0, queueBuffer);
     kernel.setArg(1, queueDetailsBuffer);
     kernel.setArg(2, computeUnits);
+    kernel.setArg(3, stateBuffer);
 
     /* Run the kernel on NDRange. */
     cl::NDRange global(computeUnits), local(1);

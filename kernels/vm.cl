@@ -14,9 +14,9 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, __global uint3 *qDetail
 bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails, int n);
 
 /* Simple kernel to test queue functionality. */
-__kernel void qtest(__global uint2 *q, __global uint3 *qDetails, int n) {
+__kernel void qtest(__global uint2 *q, __global uint3 *qDetails, int n, __global int *state) {
   size_t id = get_global_id(0);
-  q_write(7, id, q, qDetails, n);
+  q_write(11, id, q, qDetails, n);
 }
 
 /* Returns the array index of the head element of the queue specifided by 'id' */
@@ -95,4 +95,3 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails
   q_set_last_op(WRITE, id, gid, qDetails, n);
   return true;
 }
-
