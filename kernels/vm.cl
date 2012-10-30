@@ -1,6 +1,3 @@
-#define READ 0
-#define WRITE 1
-
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint3 *qDetails, int n);
@@ -15,8 +12,14 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails
 
 /* Simple kernel to test queue functionality. */
 __kernel void qtest(__global uint2 *q, __global uint3 *qDetails, int n, __global int *state) {
-  size_t id = get_global_id(0);
-  q_write(11, id, q, qDetails, n);
+  size_t gid = get_global_id(0);
+
+  uint2 x;
+  if (*state == WRITE) {
+    q_write(9, gid, q, qDetails, n);
+  } else {
+    q_read(&x, gid, q, qDetails, n);
+  }
 }
 
 /* Returns the array index of the head element of the queue specifided by 'id' */
