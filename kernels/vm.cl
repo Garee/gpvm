@@ -1,3 +1,4 @@
+void copyRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint3 *qDetails, int n);
@@ -11,16 +12,33 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, __global uint3 *qDetail
 bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails, int n);
 
 /* Simple kernel to test queue functionality. */
-__kernel void qtest(__global uint2 *q, __global uint3 *qDetails, int n, __global int *state) {
+__kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
+		    __global uint2 *rq, __global uint3 *rqDetails, 
+		    int n, __global int *state) 
+{
   size_t gid = get_global_id(0);
 
-  uint2 x;
+  uint2 x = (uint2)(7, 0);
   if (*state == WRITE) {
-    q_write(9, gid, q, qDetails, n);
+    copyRQ(rq, rqDetails, q, qDetails, n);
     *state = READ;
   } else {
-    q_read(&x, gid, q, qDetails, n);
-    *state = COMPLETE;
+    q_write(x, gid, rq, rqDetails, n);
+    *state = WRITE;
+  }
+
+  *state = COMPLETE;
+}
+
+void copyRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
+  size_t gid = get_global_id(0);
+  uint2 packet;
+  int i;
+  for (i = 0; i < n; i++) {
+    while (!q_is_empty(i, gid, rqDetails, n)) {
+      q_read(&packet, i, rq, rqDetails, n);
+      q_write(packet, i, q, qDetails, n);
+    }
   }
 }
 
