@@ -1,5 +1,3 @@
-typedef uint2 packet;
-
 #define PKT_TYPE_BIT_POS 0
 #define PKT_DEST_BIT_POS 2
 #define PKT_ARG_BIT_POS  10
@@ -9,11 +7,24 @@ typedef uint2 packet;
 #define PKT_ARG_MASK  0x3C00   // 00000000000000000011110000000000
 #define PKT_SUB_MASK  0xFFC000 // 00000000111111111100000000000000
 
+#define DEFAULT   0
 #define REFERENCE 1
 
-int pkt_get_type(packet p);
+typedef uint2 packet;
 
 void transferRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
+
+uint pkt_get_type(packet p);
+uint pkt_get_dest(packet p);
+uint pkt_get_arg(packet p);
+uint pkt_get_sub(packet p);
+uint pkt_get_payload(packet p);
+void pkt_set_type(packet *p, uint type);
+void pkt_set_dest(packet *p, uint dest);
+void pkt_set_arg(packet *p, uint arg);
+void pkt_set_sub(packet *p, uint sub);
+void pkt_set_payload(packet *p, uint payload);
+packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
 
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
@@ -32,10 +43,10 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
 		    __global uint2 *rq, __global uint3 *rqDetails, 
 		    int n, __global int *state) 
 {
+  char buffer[100];
+  buffer[99] = '\0';
   size_t gid = get_global_id(0);
-  uint2 x = (uint2)(7, 0);
-  uint2 *p = &x;
-  printf("%d\n", (*p).y);
+  packet x = pkt_create(DEFAULT, 7, 0, 0, 0);
   if (*state == WRITE) {
     transferRQ(rq, rqDetails, q, qDetails, n);
   } else {
@@ -45,50 +56,76 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
   *state = COMPLETE;
 }
 
-int pkt_get_type(packet p) {
-  return p.x & PKT_TYPE_MASK;
-}
-
-int pkt_get_dest(packet p) {
-  return p.x & PKT_DEST_MASK;
-}
-
-int pkt_get_arg(packet p) {
-  return p.x & PKT_ARG_MASK;
-}
-
-int pkt_get_sub(packet p) {
-  return p.x & PKT_SUB_MASK;
-}
-
-void pkt_set_type(packet *p, int type) {
-  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_BIT_POS) & PKT_TYPE_MASK);
-}
-
-void pkt_set_dest(packet *p, int dest) {
-  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_BIT_POS) & PKT_TYPE_MASK);
-}
-
-void pkt_set_arg(packet *p, int arg) {
-  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_BIT_POS) & PKT_ARG_MASK);
-}
-
-void pkt_set_sub(packet *p, int sub) {
-  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_BIT_POS) & PKT_SUB_MASK);
-}
-
-
 void transferRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
   size_t gid = get_global_id(0);
   uint2 packet;
-  int i;
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     while (!q_is_empty(i, gid, rqDetails, n)) {
       q_read(&packet, i, rq, rqDetails, n);
       q_write(packet, i, q, qDetails, n);
     }
   }
 }
+
+
+/**************************/
+/**** Packet Functions ****/
+/**************************/
+
+uint pkt_get_type(packet p) {
+  return p.x & PKT_TYPE_MASK;
+}
+
+uint pkt_get_dest(packet p) {
+  return p.x & PKT_DEST_MASK;
+}
+
+uint pkt_get_arg(packet p) {
+  return p.x & PKT_ARG_MASK;
+}
+
+uint pkt_get_sub(packet p) {
+  return p.x & PKT_SUB_MASK;
+}
+
+uint pkt_get_payload(packet p) {
+  return p.y;
+}
+
+void pkt_set_type(packet *p, uint type) {
+  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_BIT_POS) & PKT_TYPE_MASK);
+}
+
+void pkt_set_dest(packet *p, uint dest) {
+  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_BIT_POS) & PKT_DEST_MASK);
+}
+
+void pkt_set_arg(packet *p, uint arg) {
+  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_BIT_POS) & PKT_ARG_MASK);
+}
+
+void pkt_set_sub(packet *p, uint sub) {
+  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_BIT_POS) & PKT_SUB_MASK);
+}
+
+void pkt_set_payload(packet *p, uint payload) {
+  (*p).y = payload;
+}
+
+packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
+  packet p = 0;
+  pkt_set_type(&p, type);
+  pkt_set_dest(&p, dest);
+  pkt_set_arg(&p, arg);
+  pkt_set_sub(&p, sub);
+  pkt_set_payload(&p, payload);
+  return p;
+}
+
+
+/*************************/
+/**** Queue Functions ****/
+/*************************/
 
 /* Returns the array index of the head element of the queue specifided by 'id' */
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n) {
