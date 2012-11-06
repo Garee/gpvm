@@ -96,13 +96,15 @@ int main() {
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
     cl::Buffer qDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
-    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
-    cl::Buffer rqDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
-    cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
     commandQueue.enqueueWriteBuffer(qDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), qDetails);
+
+    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
+    cl::Buffer rqDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), readQueues);
     commandQueue.enqueueWriteBuffer(rqDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), rqDetails);
+
+    cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
 
     /* Set kernel arguments. */

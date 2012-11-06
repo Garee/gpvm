@@ -1,4 +1,20 @@
-void copyRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
+typedef uint2 packet;
+
+#define PKT_TYPE_BIT_POS 0
+#define PKT_DEST_BIT_POS 2
+#define PKT_ARG_BIT_POS  10
+#define PKT_SUB_BIT_POS  14
+#define PKT_TYPE_MASK 0x3      // 00000000000000000000000000000011
+#define PKT_DEST_MASK 0x3FC    // 00000000000000000000001111111100
+#define PKT_ARG_MASK  0x3C00   // 00000000000000000011110000000000
+#define PKT_SUB_MASK  0xFFC000 // 00000000111111111100000000000000
+
+#define REFERENCE 1
+
+int pkt_get_type(packet p);
+
+void transferRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
+
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint3 *qDetails, int n);
@@ -17,20 +33,52 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
 		    int n, __global int *state) 
 {
   size_t gid = get_global_id(0);
-
   uint2 x = (uint2)(7, 0);
+  uint2 *p = &x;
+  printf("%d\n", (*p).y);
   if (*state == WRITE) {
-    copyRQ(rq, rqDetails, q, qDetails, n);
-    *state = READ;
+    transferRQ(rq, rqDetails, q, qDetails, n);
   } else {
     q_write(x, gid, rq, rqDetails, n);
-    *state = WRITE;
   }
 
   *state = COMPLETE;
 }
 
-void copyRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
+int pkt_get_type(packet p) {
+  return p.x & PKT_TYPE_MASK;
+}
+
+int pkt_get_dest(packet p) {
+  return p.x & PKT_DEST_MASK;
+}
+
+int pkt_get_arg(packet p) {
+  return p.x & PKT_ARG_MASK;
+}
+
+int pkt_get_sub(packet p) {
+  return p.x & PKT_SUB_MASK;
+}
+
+void pkt_set_type(packet *p, int type) {
+  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_BIT_POS) & PKT_TYPE_MASK);
+}
+
+void pkt_set_dest(packet *p, int dest) {
+  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_BIT_POS) & PKT_TYPE_MASK);
+}
+
+void pkt_set_arg(packet *p, int arg) {
+  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_BIT_POS) & PKT_ARG_MASK);
+}
+
+void pkt_set_sub(packet *p, int sub) {
+  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_BIT_POS) & PKT_SUB_MASK);
+}
+
+
+void transferRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
   size_t gid = get_global_id(0);
   uint2 packet;
   int i;
@@ -118,3 +166,4 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails
   q_set_last_op(WRITE, id, gid, qDetails, n);
   return true;
 }
+ 
