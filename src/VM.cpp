@@ -127,36 +127,19 @@ int main() {
 
     /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
+    commandQueue.enqueueReadBuffer(qDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), qDetails);
 
     /* Print the queues. */
     for (int i = 0; i < nQueues * QUEUE_SIZE; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
-    std::cout << std::endl;
 
-    commandQueue.enqueueReadBuffer(qDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), qDetails);
+    std::cout << std::endl;
     std::cout << "---------------" << std::endl;
+
     for (int i = 0; i < nQueues; i++) {
       std::cout << "(" << qDetails[i].x << " " << qDetails[i].y << " " << qDetails[i].z << ")" << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "===============================================" << std::endl;
-    /* Read the modified queue buffer. */
-    commandQueue.enqueueReadBuffer(rqBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), readQueues);
-
-    /* Print the queues. */
-    for (int i = 0; i < nQueues * QUEUE_SIZE; i++) {
-      if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
-      std::cout << "(" << readQueues[i].x << " " << readQueues[i].y << ")" << " ";
-    }
-    std::cout << std::endl;
-
-    commandQueue.enqueueReadBuffer(rqDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), rqDetails);
-    std::cout << "---------------" << std::endl;
-    for (int i = 0; i < nQueues; i++) {
-      std::cout << "(" << rqDetails[i].x << " " << rqDetails[i].y << " " << rqDetails[i].z << ")" << " ";
     }
     std::cout << std::endl;
 

@@ -1,3 +1,4 @@
+/* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_BIT_POS 0
 #define PKT_DEST_BIT_POS 2
 #define PKT_ARG_BIT_POS  10
@@ -7,12 +8,11 @@
 #define PKT_ARG_MASK  0x3C00   // 00000000000000000011110000000000
 #define PKT_SUB_MASK  0xFFC000 // 00000000111111111100000000000000
 
+/* Packet Types */
 #define DEFAULT   0
 #define REFERENCE 1
 
 typedef uint2 packet;
-
-void transferRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
 
 uint pkt_get_type(packet p);
 uint pkt_get_dest(packet p);
@@ -26,6 +26,7 @@ void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload(packet *p, uint payload);
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
 
+void transferRQ(__global uint2 *q, __global uint3 *qDetails, __global uint2 *rq, __global uint3 *rqDetails, int n);
 uint q_get_head_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint3 *qDetails, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint3 *qDetails, int n);
@@ -38,35 +39,25 @@ bool q_is_full(size_t id, size_t gid,__global uint3 *qDetails, int n);
 bool q_read(uint2 *result, size_t id, __global uint2 *q, __global uint3 *qDetails, int n);
 bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails, int n);
 
-/* Simple kernel to test queue functionality. */
+/**************************/
+/******* The Kernel *******/
+/**************************/
 __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
 		    __global uint2 *rq, __global uint3 *rqDetails, 
-		    int n, __global int *state) 
+		    int n, 
+		    __global int *state) 
 {
-  char buffer[100];
-  buffer[99] = '\0';
   size_t gid = get_global_id(0);
-  packet x = pkt_create(DEFAULT, 7, 0, 0, 0);
+
+  packet p = pkt_create(DEFAULT, 7, 0, 0, 0);
   if (*state == WRITE) {
     transferRQ(rq, rqDetails, q, qDetails, n);
   } else {
-    q_write(x, gid, rq, rqDetails, n);
+    q_write(p, gid, q, qDetails, n);
   }
 
   *state = COMPLETE;
 }
-
-void transferRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
-  size_t gid = get_global_id(0);
-  uint2 packet;
-  for (int i = 0; i < n; i++) {
-    while (!q_is_empty(i, gid, rqDetails, n)) {
-      q_read(&packet, i, rq, rqDetails, n);
-      q_write(packet, i, q, qDetails, n);
-    }
-  }
-}
-
 
 /**************************/
 /**** Packet Functions ****/
@@ -203,4 +194,16 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, __global uint3 *qDetails
   q_set_last_op(WRITE, id, gid, qDetails, n);
   return true;
 }
+
+void transferRQ(__global uint2 *rq, __global uint3 *rqDetails, __global uint2 *q, __global uint3 *qDetails, int n) {
+  size_t gid = get_global_id(0);
+  uint2 packet;
+  for (int i = 0; i < n; i++) {
+    while (!q_is_empty(i, gid, rqDetails, n)) {
+      q_read(&packet, i, rq, rqDetails, n);
+      q_write(packet, i, q, qDetails, n);
+    }
+  }
+}
+
  
