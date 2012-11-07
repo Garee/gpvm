@@ -7,10 +7,10 @@
 #include <vector>
 #include "DeviceInfo.h"
 
+const int QUEUE_SIZE = 16;
 const int COMPLETE = -1;
 const int READ = 0;
 const int WRITE = 1;
-const int QUEUE_SIZE = 16;
 
 const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 -D COMPLETE=-1 -D READ=0 -D WRITE=1";
 const char *KERNEL_FILE = "kernels/vm.cl";
@@ -63,12 +63,15 @@ int main() {
     /* Create the qtest kernel. */
     cl::Kernel kernel(program, "vm");
     
+    /* Calculate the memory required to store the queues. */
+    int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
+
     /* Allocate memory for the queues. */
-    cl_uint2 *queues = new cl_uint2[(nQueues * QUEUE_SIZE) + nQueues];
-    cl_uint2 *readQueues = new cl_uint2[(nQueues * QUEUE_SIZE) + nQueues];
+    cl_uint2 *queues = new cl_uint2[qBufSize];
+    cl_uint2 *readQueues = new cl_uint2[qBufSize];
 
     /* Initialise queue elements to zero. */
-    for (int i = 0; i < (nQueues * QUEUE_SIZE) + nQueues; i++) {
+    for (int i = 0; i < qBufSize; i++) {
       queues[i].x = 0;
       queues[i].y = 0;
       readQueues[i].x = 0;
@@ -79,11 +82,11 @@ int main() {
     *state = WRITE;
 
     /* Create memory buffers on the device. */
-    cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2));
-    commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), queues);
+    cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(cl_uint2), queues);
 
-    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2));
-    commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), readQueues);
+    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(cl_uint2), readQueues);
 
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
@@ -105,8 +108,9 @@ int main() {
     }
 
     /* Read the modified queue buffer. */
-    commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), queues);
+    commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(cl_uint2), queues);
 
+    /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
@@ -114,7 +118,7 @@ int main() {
     std::cout << std::endl;
 
     /* Print the queues. */
-    for (int i = nQueues; i < (nQueues * QUEUE_SIZE) + nQueues; i++) {
+    for (int i = nQueues; i < qBufSize; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
