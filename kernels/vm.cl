@@ -136,14 +136,14 @@ uint q_get_tail_index(size_t id, size_t gid,__global uint2 *q, int n) {
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint2 *q, int n) {
   ushort2 indices = q[id * n + gid].x;
   indices.x = index;
-  q[id * n + gid].x = (uint) indices;
+  q[id * n + gid].x = as_uint(indices);
 }
 
 /* Set the array index of the tail element of the queue specified by 'id'. */
 void q_set_tail_index(uint index, size_t id, size_t gid,__global uint2 *q, int n) {
   ushort2 indices = q[id * n + gid].x;
   indices.y = index;
-  q[id * n + gid].x = (uint) indices;
+  q[id * n + gid].x = as_uint(indices);
 }
 
 /* Set the type of the operation last performed on the queue specified by 'id'. */
