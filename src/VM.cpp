@@ -61,59 +61,38 @@ int main() {
     program.build(devices, KERNEL_MACROS);
 
     /* Create the qtest kernel. */
-    cl::Kernel kernel(program, "qtest");
+    cl::Kernel kernel(program, "vm");
     
     /* Allocate memory for the queues. */
-    cl_uint2 *queues = new cl_uint2[nQueues * QUEUE_SIZE];
-    cl_uint2 *readQueues = new cl_uint2[nQueues * QUEUE_SIZE];
+    cl_uint2 *queues = new cl_uint2[(nQueues * QUEUE_SIZE) + nQueues];
+    cl_uint2 *readQueues = new cl_uint2[(nQueues * QUEUE_SIZE) + nQueues];
 
     /* Initialise queue elements to zero. */
-    for (int i = 0; i < nQueues * QUEUE_SIZE; i++) {
+    for (int i = 0; i < (nQueues * QUEUE_SIZE) + nQueues; i++) {
       queues[i].x = 0;
       queues[i].y = 0;
       readQueues[i].x = 0;
       readQueues[i].y = 0;
     }
     
-    /* Allocate memory for the queue details. Each vector stores the head index,
-       the tail index and the type of the last operation. */
-    cl_uint3 *qDetails = new cl_uint3[nQueues];
-    cl_uint3 *rqDetails = new cl_uint3[nQueues];
-
-    /* Initialise elements to zero. */
-    for (int i = 0; i < nQueues; i++) {
-      qDetails[i].x = 0; // Head
-      qDetails[i].y = 0; // Tail
-      qDetails[i].z = 0; // Type of last operation (r/w).
-      rqDetails[i].x = 0; // Head
-      rqDetails[i].y = 0; // Tail
-      rqDetails[i].z = 0; // Type of last operation (r/w).
-    }
-
     int *state = new int;
     *state = WRITE;
 
     /* Create memory buffers on the device. */
-    cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
-    cl::Buffer qDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
-    commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
-    commandQueue.enqueueWriteBuffer(qDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), qDetails);
+    cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), queues);
 
-    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * QUEUE_SIZE * sizeof(cl_uint2));
-    cl::Buffer rqDetailsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, nQueues * sizeof(cl_uint3));
-    commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), readQueues);
-    commandQueue.enqueueWriteBuffer(rqDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), rqDetails);
+    cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2));
+    commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), readQueues);
 
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
 
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
-    kernel.setArg(1, qDetailsBuffer);
-    kernel.setArg(2, rqBuffer);
-    kernel.setArg(3, rqDetailsBuffer);
-    kernel.setArg(4, computeUnits);
-    kernel.setArg(5, stateBuffer);
+    kernel.setArg(1, rqBuffer);
+    kernel.setArg(2, computeUnits);
+    kernel.setArg(3, stateBuffer);
 
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
@@ -126,20 +105,18 @@ int main() {
     }
 
     /* Read the modified queue buffer. */
-    commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, nQueues * QUEUE_SIZE * sizeof(cl_uint2), queues);
-    commandQueue.enqueueReadBuffer(qDetailsBuffer, CL_TRUE, 0, nQueues * sizeof(cl_uint3), qDetails);
-
-    /* Print the queues. */
-    for (int i = 0; i < nQueues * QUEUE_SIZE; i++) {
-      if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
-      std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
-    }
-
-    std::cout << std::endl;
-    std::cout << "---------------" << std::endl;
+    commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, ((nQueues * QUEUE_SIZE) + nQueues) * sizeof(cl_uint2), queues);
 
     for (int i = 0; i < nQueues; i++) {
-      std::cout << "(" << qDetails[i].x << " " << qDetails[i].y << " " << qDetails[i].z << ")" << " ";
+      std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
+    }
+    std::cout << std::endl;
+    std::cout << std::endl;
+
+    /* Print the queues. */
+    for (int i = nQueues; i < (nQueues * QUEUE_SIZE) + nQueues; i++) {
+      if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
+      std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
 
