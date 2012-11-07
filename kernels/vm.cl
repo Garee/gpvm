@@ -1,16 +1,18 @@
 /* Used to create, manipulate and access packet information. */
-#define PKT_TYPE_BIT_POS 0
-#define PKT_DEST_BIT_POS 2
-#define PKT_ARG_BIT_POS  10
-#define PKT_SUB_BIT_POS  14
+#define PKT_TYPE_SHIFT 0
+#define PKT_DEST_SHIFT 2
+#define PKT_ARG_SHIFT  10
+#define PKT_SUB_SHIFT  14
 #define PKT_TYPE_MASK 0x3      // 00000000000000000000000000000011
 #define PKT_DEST_MASK 0x3FC    // 00000000000000000000001111111100
 #define PKT_ARG_MASK  0x3C00   // 00000000000000000011110000000000
 #define PKT_SUB_MASK  0xFFC000 // 00000000111111111100000000000000
 
 /* Packet Types */
-#define DEFAULT   0
+#define ERROR     0
 #define REFERENCE 1
+#define DATA      2
+#define REQUEST   3
 
 typedef uint2 packet;
 
@@ -49,7 +51,7 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
 {
   size_t gid = get_global_id(0);
 
-  packet p = pkt_create(DEFAULT, 7, 0, 0, 0);
+  packet p = pkt_create(ERROR, 7, 0, 0, 0);
   if (*state == WRITE) {
     transferRQ(rq, rqDetails, q, qDetails, n);
   } else {
@@ -64,19 +66,19 @@ __kernel void qtest(__global uint2 *q, __global uint3 *qDetails,
 /**************************/
 
 uint pkt_get_type(packet p) {
-  return p.x & PKT_TYPE_MASK;
+  return (p.x & PKT_TYPE_MASK) >> PKT_TYPE_SHIFT;
 }
 
 uint pkt_get_dest(packet p) {
-  return p.x & PKT_DEST_MASK;
+  return (p.x & PKT_DEST_MASK) >> PKT_DEST_SHIFT;
 }
 
 uint pkt_get_arg(packet p) {
-  return p.x & PKT_ARG_MASK;
+  return (p.x & PKT_ARG_MASK) >> PKT_ARG_SHIFT;
 }
 
 uint pkt_get_sub(packet p) {
-  return p.x & PKT_SUB_MASK;
+  return (p.x & PKT_SUB_MASK) >> PKT_SUB_SHIFT;
 }
 
 uint pkt_get_payload(packet p) {
@@ -84,19 +86,19 @@ uint pkt_get_payload(packet p) {
 }
 
 void pkt_set_type(packet *p, uint type) {
-  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_BIT_POS) & PKT_TYPE_MASK);
+  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_SHIFT) & PKT_TYPE_MASK);
 }
 
 void pkt_set_dest(packet *p, uint dest) {
-  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_BIT_POS) & PKT_DEST_MASK);
+  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_SHIFT) & PKT_DEST_MASK);
 }
 
 void pkt_set_arg(packet *p, uint arg) {
-  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_BIT_POS) & PKT_ARG_MASK);
+  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
 }
 
 void pkt_set_sub(packet *p, uint sub) {
-  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_BIT_POS) & PKT_SUB_MASK);
+  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_SHIFT) & PKT_SUB_MASK);
 }
 
 void pkt_set_payload(packet *p, uint payload) {
