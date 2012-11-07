@@ -15,6 +15,8 @@ const int WRITE = 1;
 const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 -D COMPLETE=-1 -D READ=0 -D WRITE=1";
 const char *KERNEL_FILE = "kernels/vm.cl";
 
+void toggleState(int *state);
+
 int main() {
   std::vector<cl::Platform> platforms;
   std::vector<cl::Device> devices;
@@ -77,7 +79,7 @@ int main() {
       readQueues[i].x = 0;
       readQueues[i].y = 0;
     }
-    
+
     int *state = new int;
     *state = WRITE;
 
@@ -105,6 +107,8 @@ int main() {
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
       commandQueue.finish();
       commandQueue.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
+      toggleState(state);
+      commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
     }
 
     /* Read the modified queue buffer. */
@@ -132,4 +136,9 @@ int main() {
   }
 
   return 0;
+}
+
+void toggleState(int *state) {
+  if (*state == COMPLETE) return;
+  *state = (*state == WRITE) ? READ : WRITE;
 }

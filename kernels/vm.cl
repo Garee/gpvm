@@ -11,10 +11,14 @@
 /* Packet Types */
 #define ERROR     0
 #define REFERENCE 1
-#define DATA      2
-#define REQUEST   3
+#define REQUEST   2
+#define DATA      3
 
 typedef uint2 packet;
+
+bool cunit_q_is_empty(__global uint2 *q, int n);
+bool cunit_q_is_full(__global uint2 *q, int n);
+void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
 uint pkt_get_type(packet p);
 uint pkt_get_dest(packet p);
@@ -28,7 +32,6 @@ void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload(packet *p, uint payload);
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
 
-void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 uint q_get_head_index(size_t id, size_t gid, __global uint2 *q, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global uint2 *q, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint2 *q, int n);
@@ -38,27 +41,79 @@ bool q_last_op_is_read(size_t id, size_t gid, __global uint2 *q, int n);
 bool q_last_op_is_write(size_t id, size_t gid, __global uint2 *q, int n);
 bool q_is_empty(size_t id, size_t gid, __global uint2 *q, int n);
 bool q_is_full(size_t id, size_t gid,__global uint2 *q, int n);
+uint q_size(size_t id, size_t gid, __global uint2 *q, int n);
 bool q_read(uint2 *result, size_t id, __global uint2 *q, int n);
 bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 
 /**************************/
 /******* The Kernel *******/
 /**************************/
-__kernel void vm(__global uint2 *q,
-		 __global uint2 *rq,
-		 int n, 
-		 __global int *state) 
-{
+__kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state) {
   size_t gid = get_global_id(0);
-
-  packet p = pkt_create(ERROR, 7, 0, 0, 0);
   if (*state == WRITE) {
     transferRQ(rq, q, n);
+
+    switch (gid) {
+    case 0:
+      
+    case 1:
+
+    case 2:
+
+    case 3:
+      if (!cunit_q_is_empty(q, n)) {
+	*state = COMPLETE;
+      }
+    }
   } else {
-    q_write(p, gid, q, n);
+    switch (gid) {
+    case 0:
+      packet p = pkt_create(ERROR, 0, 1, 0, 0);
+      q_write(p, 3, rq, n);
+      q_write(p, 3, rq, n);
+      q_write(p, 3, rq, n);
+      break;
+      
+    case 1:
+
+    case 2:
+
+    case 3:
+    }
+  }
+}
+
+bool cunit_q_is_empty(__global uint2 *q, int n) {
+  size_t gid = get_global_id(0);
+  for (int i = 0; i < n; i++) {
+    if (!q_is_empty(i, gid, q, n)) {
+      return false;
+    }
   }
 
-  *state = COMPLETE;
+  return true;
+}
+
+bool cunit_q_is_full(__global uint2 *q, int n) {
+  size_t gid = get_global_id(0);
+  for (int i = 0; i < n; i++) {
+    if (!q_is_full(i, gid, q, n)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void transferRQ(__global uint2 *rq,  __global uint2 *q, int n) {
+  size_t gid = get_global_id(0);
+  uint2 packet;
+  for (int i = 0; i < n; i++) {
+    while (!q_is_empty(i, gid, rq, n)) {
+      q_read(&packet, i, rq, n);
+      q_write(packet, i, q, n);
+    }
+  }
 }
 
 /**************************/
@@ -143,7 +198,10 @@ void q_set_head_index(uint index, size_t id, size_t gid, __global uint2 *q, int 
 void q_set_tail_index(uint index, size_t id, size_t gid,__global uint2 *q, int n) {
   ushort2 indices = q[id * n + gid].x;
   indices.y = index;
+  printf("tail = %d\n", indices.y);
   q[id * n + gid].x = as_uint(indices);
+  ushort2 i = as_ushort2(q[id * n + gid].x);
+  printf("tailafter = %d\n", i.y);
 }
 
 /* Set the type of the operation last performed on the queue specified by 'id'. */
@@ -169,10 +227,20 @@ bool q_is_empty(size_t id, size_t gid,  __global uint2 *q, int n) {
 
 /* Returns true if the queue is full, false otherwise. */
 bool q_is_full(size_t id, size_t gid, __global uint2 *q, int n) {
+  uint head = q_get_head_index(id, gid, q, n);
+  uint tail = q_get_tail_index(id, gid, q, n);
+  bool iswrite = q_last_op_is_write(id, gid, q, n);
+  printf("%d %d %d\n", head, tail, iswrite);
   return (q_get_head_index(id, gid, q, n) == q_get_tail_index(id, gid, q, n))
     && q_last_op_is_write(id, gid, q, n);
 }
 
+uint q_size(size_t id, size_t gid, __global uint2 *q, int n) {
+  uint head = q_get_head_index(id, gid, q, n);
+  uint tail = q_get_tail_index(id, gid, q, n);
+  return (tail > head) ? (tail - head) : (head - tail);
+}
+ 
 /* Read the value located at the head index into 'result' from the queue specified by 'id'.
  * Returns true if succcessful (queue is not empty), false otherwise. */ 
 bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
@@ -201,15 +269,4 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
   q_set_last_op(WRITE, id, gid, q, n);
   return true;
-}
-
-void transferRQ(__global uint2 *rq,  __global uint2 *q, int n) {
-  size_t gid = get_global_id(0);
-  uint2 packet;
-  for (int i = 0; i < n; i++) {
-    while (!q_is_empty(i, gid, rq, n)) {
-      q_read(&packet, i, rq, n);
-      q_write(packet, i, q, n);
-    }
-  }
 }
