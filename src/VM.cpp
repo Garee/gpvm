@@ -7,15 +7,18 @@
 #include <vector>
 #include "DeviceInfo.h"
 
+const char *KERNEL_NAME = "vm";
+const char *KERNEL_FILE = "kernels/vm.cl";
+const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 "
+                            "-D COMPLETE=-1 " 
+                            "-D READ=0 "
+                            "-D WRITE=1";
 const int QUEUE_SIZE = 16;
 const int COMPLETE = -1;
 const int READ = 0;
 const int WRITE = 1;
 
-const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 -D COMPLETE=-1 -D READ=0 -D WRITE=1";
-const char *KERNEL_FILE = "kernels/vm.cl";
-
-void toggleState(int *state);
+void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -62,8 +65,8 @@ int main() {
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_MACROS);
 
-    /* Create the qtest kernel. */
-    cl::Kernel kernel(program, "vm");
+    /* Create the kernel. */
+    cl::Kernel kernel(program, KERNEL_NAME);
     
     /* Calculate the memory required to store the queues. */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
@@ -106,9 +109,7 @@ int main() {
     while (*state != COMPLETE) {
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
       commandQueue.finish();
-      commandQueue.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-      toggleState(state);
-      commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
+      toggleState(commandQueue, stateBuffer, state);
     }
 
     /* Read the modified queue buffer. */
@@ -116,7 +117,9 @@ int main() {
 
     /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {
-      std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
+      int x = ((queues[i].x & 0xFFFF0000) >> 16);
+      int y = queues[i].x & 0xFFFF;
+      std::cout << "(" << x << "," << y << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
     std::cout << std::endl;
@@ -130,6 +133,8 @@ int main() {
 
     /* Cleanup */
     delete[] queues;
+    delete[] readQueues;
+    delete state;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
     std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
@@ -138,7 +143,10 @@ int main() {
   return 0;
 }
 
-void toggleState(int *state) {
+void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state) {
+  commandQueue.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
   if (*state == COMPLETE) return;
   *state = (*state == WRITE) ? READ : WRITE;
+  commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
+  commandQueue.finish();
 }
