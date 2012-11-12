@@ -2,7 +2,7 @@ SHELL = /bin/sh
 
 .SUFFIXES:
 .SUFFIXES: .cpp .o
-.PHONY: all distclean clean
+.PHONY: all test distclean clean 
 
 SRCDIR = src
 OBJDIR = obj
@@ -29,7 +29,8 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 test:
-	$(CC) tests/vmtest.c -o $(TEST)
+	gcc -std=c99 tests/vmtest.c -o $(TEST)
+	./vmtest
 
 distclean: clean
 	rm -f $(BIN) $(TEST)
