@@ -1,3 +1,7 @@
+#ifdef KERNEL_TEST_ENABLED
+#include "../tests/kerneltypes.h"
+#endif
+
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_SHIFT 0
 #define PKT_DEST_SHIFT 2
@@ -200,7 +204,7 @@ void pkt_set_payload(packet *p, uint payload) {
 
 /* Return a newly created packet. */
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
-  packet p = 0;
+  packet p;
   pkt_set_type(&p, type);
   pkt_set_dest(&p, dest);
   pkt_set_arg(&p, arg);

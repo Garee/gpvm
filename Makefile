@@ -12,6 +12,7 @@ SRC = $(wildcard $(SRCDIR)/*.cpp)
 OBJ = $(addprefix $(OBJDIR)/, $(notdir $(SRC:.cpp=.o)))
 LIB = -lOpenCL
 BIN = vm
+TEST = vmtest
 
 CC = g++
 CFLAGS = -Wall -Wextra -pedantic -Werror -g -I $(INCDIR)
@@ -27,8 +28,11 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
+test:
+	$(CC) tests/vmtest.c -o $(TEST)
+
 distclean: clean
-	rm -f $(BIN)
+	rm -f $(BIN) $(TEST)
 
 clean:
 	rm -f $(OBJ)
