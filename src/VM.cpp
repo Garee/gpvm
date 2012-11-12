@@ -107,7 +107,6 @@ int main() {
 
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
-      std::cout << "STATE: " << *state << std::endl;
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
       commandQueue.finish();
       toggleState(commandQueue, stateBuffer, state);

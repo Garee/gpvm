@@ -3,10 +3,10 @@
 #define PKT_DEST_SHIFT 2
 #define PKT_ARG_SHIFT  10
 #define PKT_SUB_SHIFT  14
-#define PKT_TYPE_MASK 0x3      // 00000000000000000000000000000011
-#define PKT_DEST_MASK 0x3FC    // 00000000000000000000001111111100
-#define PKT_ARG_MASK  0x3C00   // 00000000000000000011110000000000
-#define PKT_SUB_MASK  0xFFC000 // 00000000111111111100000000000000
+#define PKT_TYPE_MASK  0x3      // 00000000000000000000000000000011
+#define PKT_DEST_MASK  0x3FC    // 00000000000000000000001111111100
+#define PKT_ARG_MASK   0x3C00   // 00000000000000000011110000000000
+#define PKT_SUB_MASK   0xFFC000 // 00000000111111111100000000000000
 
 /* Packet Types */
 #define ERROR     0
@@ -57,11 +57,11 @@ __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *sta
 
     switch (gid) {
     case 0:
-      
+      break;
     case 1:
-
+      break;
     case 2:
-
+      break;
     case 3:
       if (!cunit_q_is_empty(0, q, n)) {
 	*state = COMPLETE;
@@ -72,7 +72,7 @@ __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *sta
     switch (gid) {
     case 0:
       if (cunit_q_is_empty(1, q, n)) {
-	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
 	q_write(p, 1, rq, n);
 	q_write(p, 2, rq, n);
 	q_write(p, 3, rq, n);
@@ -81,17 +81,18 @@ __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *sta
       
     case 1:
       if (!cunit_q_is_empty(gid, q, n)) {
-	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
 	q_write(p, 2, rq, n);
       }
       break;
     case 2:
       if (cunit_q_size(gid, q, n) == 2) {
-	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
 	q_write(p, 0, rq, n);
       }
       break;
     case 3:
+      break;
     }
   }
 }
