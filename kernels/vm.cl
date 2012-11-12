@@ -16,8 +16,9 @@
 
 typedef uint2 packet;
 
-bool cunit_q_is_empty(__global uint2 *q, int n);
-bool cunit_q_is_full(__global uint2 *q, int n);
+bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
+bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
+uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
 uint pkt_get_type(packet p);
@@ -50,6 +51,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state) {
   size_t gid = get_global_id(0);
+  printf("%d %d %d %d\n", cunit_q_size(0, q, n), cunit_q_size(1, q, n), cunit_q_size(2, q, n), cunit_q_size(3, q, n));
   if (*state == WRITE) {
     transferRQ(rq, q, n);
 
@@ -61,32 +63,42 @@ __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *sta
     case 2:
 
     case 3:
-      if (!cunit_q_is_empty(q, n)) {
+      if (!cunit_q_is_empty(0, q, n)) {
 	*state = COMPLETE;
       }
+      break;
     }
   } else {
     switch (gid) {
     case 0:
-      packet p = pkt_create(ERROR, 0, 1, 0, 0);
-      q_write(p, 0, rq, n);
-      q_write(p, 0, rq, n);
-      q_write(p, 0, rq, n);
+      if (cunit_q_is_empty(1, q, n)) {
+	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	q_write(p, 1, rq, n);
+	q_write(p, 2, rq, n);
+	q_write(p, 3, rq, n);
+      }
       break;
       
     case 1:
-
+      if (!cunit_q_is_empty(gid, q, n)) {
+	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	q_write(p, 2, rq, n);
+      }
+      break;
     case 2:
-
+      if (cunit_q_size(gid, q, n) == 2) {
+	packet p = pkt_create(ERROR, 0, 1, 0, 0);
+	q_write(p, 0, rq, n);
+      }
+      break;
     case 3:
     }
   }
 }
 
-bool cunit_q_is_empty(__global uint2 *q, int n) {
-  size_t gid = get_global_id(0);
+bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
   for (int i = 0; i < n; i++) {
-    if (!q_is_empty(i, gid, q, n)) {
+    if (!q_is_empty(gid, i, q, n)) {
       return false;
     }
   }
@@ -94,15 +106,23 @@ bool cunit_q_is_empty(__global uint2 *q, int n) {
   return true;
 }
 
-bool cunit_q_is_full(__global uint2 *q, int n) {
-  size_t gid = get_global_id(0);
+bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
   for (int i = 0; i < n; i++) {
-    if (!q_is_full(i, gid, q, n)) {
+    if (!q_is_full(gid, i, q, n)) {
       return false;
     }
   }
 
   return true;
+}
+
+uint cunit_q_size(size_t gid, __global uint2 *q, int n) {
+  uint size = 0;
+  for (int i = 0; i < n; i++) {
+    size += q_size(gid, i, q, n);
+  }
+
+  return size;
 }
 
 void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
@@ -213,7 +233,7 @@ bool q_last_op_is_read(size_t id, size_t gid,__global uint2 *q, int n) {
 
 /* Returns true if the last operation performed on the queue specified by 'id' is a write, false otherwise. */
 bool q_last_op_is_write(size_t id, size_t gid,__global uint2 *q, int n) {
-  return q[id * n + gid].y != READ;
+  return q[id * n + gid].y == WRITE;
 }
 
 /* Returns true if the queue is empty, false otherwise. */
@@ -243,7 +263,7 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   }
 
   int index = q_get_head_index(id, gid, q, n);
-  *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
+  *result = q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index];
   q_set_head_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
   q_set_last_op(READ, id, gid, q, n);
   return true;
@@ -258,7 +278,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   }
 
   int index = q_get_tail_index(id, gid, q, n);
-  q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index] = value;
+  q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index] = value;
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
   q_set_last_op(WRITE, id, gid, q, n);
   return true;
