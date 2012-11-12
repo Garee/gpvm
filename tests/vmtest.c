@@ -8,87 +8,86 @@ int tests_run = 0;
  
 static char *test_pkt_get_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_type", pkt_get_type(p) == REFERENCE);
-  mu_assert("FAIL: test_pkt_get_type", pkt_get_type(p) != ERROR);
+  mu_assert("FAIL: test_pkt_get_type [1]", pkt_get_type(p) == REFERENCE);
+  mu_assert("FAIL: test_pkt_get_type [2]", pkt_get_type(p) != ERROR);
   return NULL;
 }
 
 static char *test_pkt_get_dest() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_dest", pkt_get_dest(p) == 1);
-  mu_assert("FAIL: test_pkt_get_dest", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_get_dest [2]", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_get_dest [1]", pkt_get_dest(p) == 1);
   return NULL;
 }
 
 static char *test_pkt_get_arg() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_arg", pkt_get_arg(p) == 2);
-  mu_assert("FAIL: test_pkt_get_arg", pkt_get_arg(p) != 3);
+  mu_assert("FAIL: test_pkt_get_arg [2]", pkt_get_arg(p) != 3);
+  mu_assert("FAIL: test_pkt_get_arg [1]", pkt_get_arg(p) == 2);
   return NULL;
 }
 
 static char *test_pkt_get_sub() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_sub", pkt_get_sub(p) == 3);
-  mu_assert("FAIL: test_pkt_get_sub", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_get_sub [2]", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_get_sub [1]", pkt_get_sub(p) == 3);
   return NULL;
 }
 
 static char *test_pkt_get_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_payload", pkt_get_payload(p) == 4);
-  mu_assert("FAIL: test_pkt_get_payload", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_get_payload [2]", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_get_payload [1]", pkt_get_payload(p) == 4);
   return NULL;
 }
 
 static char *test_pkt_set_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_type(&p, ERROR);
-  mu_assert("FAIL: test_pkt_set_type", pkt_get_type(p) == ERROR);
-  mu_assert("FAIL: test_pkt_set_type", pkt_get_type(p) != REFERENCE);
+  mu_assert("FAIL: test_pkt_set_type [2]", pkt_get_type(p) != REFERENCE);
+  mu_assert("FAIL: test_pkt_set_type [1]", pkt_get_type(p) == ERROR);
   return NULL;
 }
 
 static char *test_pkt_set_dest() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_dest(&p, 7);
-  mu_assert("FAIL: test_pkt_set_dest", pkt_get_dest(p) == 7);
-  mu_assert("FAIL: test_pkt_set_dest", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_set_dest [2]", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_set_dest [1]", pkt_get_dest(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_arg() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_arg(&p, 7);
-  mu_assert("FAIL: test_pkt_set_arg", pkt_get_arg(p) == 7);
-  mu_assert("FAIL: test_pkt_set_arg", pkt_get_arg(p) != 3);
+  mu_assert("FAIL: test_pkt_set_arg [2]", pkt_get_arg(p) != 3);
+  mu_assert("FAIL: test_pkt_set_arg [1]", pkt_get_arg(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_sub() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_sub(&p, 7);
-  mu_assert("FAIL: test_pkt_set_sub", pkt_get_sub(p) == 7);
-  mu_assert("FAIL: test_pkt_set_sub", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_set_sub [2]", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_set_sub [1]", pkt_get_sub(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_payload(&p, 7);
-  mu_assert("FAIL: test_pkt_set_payload", pkt_get_payload(p) == 7);
-  mu_assert("FAIL: test_pkt_set_payload", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_set_payload [2]", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_set_payload [1]", pkt_get_payload(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_create() {
-  packet p;
-  p = pkt_create(ERROR, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_create", pkt_get_type(p) == ERROR);
-  mu_assert("FAIL: test_pkt_create", pkt_get_dest(p) == 1);
-  mu_assert("FAIL: test_pkt_create", pkt_get_arg(p) == 2);
-  mu_assert("FAIL: test_pkt_create", pkt_get_sub(p) == 3);
-  mu_assert("FAIL: test_pkt_create", pkt_get_payload(p) == 4);
+  packet p = pkt_create(ERROR, 1, 2, 3, 4);
+  mu_assert("FAIL: test_pkt_create [1]", pkt_get_type(p) == ERROR);
+  mu_assert("FAIL: test_pkt_create [2]", pkt_get_dest(p) == 1);
+  mu_assert("FAIL: test_pkt_create [3]", pkt_get_arg(p) == 2);
+  mu_assert("FAIL: test_pkt_create [4]", pkt_get_sub(p) == 3);
+  mu_assert("FAIL: test_pkt_create [5]", pkt_get_payload(p) == 4);
   return NULL;
 }
  
