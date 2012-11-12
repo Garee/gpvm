@@ -51,7 +51,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state) {
   size_t gid = get_global_id(0);
-  printf("%d %d %d %d\n", cunit_q_size(0, q, n), cunit_q_size(1, q, n), cunit_q_size(2, q, n), cunit_q_size(3, q, n));
+ 
   if (*state == WRITE) {
     transferRQ(rq, q, n);
 
@@ -126,11 +126,9 @@ uint cunit_q_size(size_t gid, __global uint2 *q, int n) {
 }
 
 void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
-  size_t gid = get_global_id(0);
   uint2 packet;
   for (int i = 0; i < n; i++) {
-    while (!q_is_empty(i, gid, rq, n)) {
-      q_read(&packet, i, rq, n);
+    while (q_read(&packet, i, rq, n)) {
       q_write(packet, i, q, n);
     }
   }
