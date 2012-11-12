@@ -96,6 +96,12 @@ __kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *sta
   }
 }
 
+
+/**************************************/
+/**** Compute Unit Queue Functions ****/
+/**************************************/
+
+/* Returns true if all queues owned by the specified compute unit are empty, false otherwise. */
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
   for (int i = 0; i < n; i++) {
     if (!q_is_empty(gid, i, q, n)) {
@@ -106,6 +112,7 @@ bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
   return true;
 }
 
+/* Returns true if all queues owned by the specified compute unit are full, false otherwise. */
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
   for (int i = 0; i < n; i++) {
     if (!q_is_full(gid, i, q, n)) {
@@ -116,6 +123,7 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
   return true;
 }
 
+/* Return the total size of all compute unit owned queues. */
 uint cunit_q_size(size_t gid, __global uint2 *q, int n) {
   uint size = 0;
   for (int i = 0; i < n; i++) {
@@ -125,6 +133,7 @@ uint cunit_q_size(size_t gid, __global uint2 *q, int n) {
   return size;
 }
 
+/* Copy all compute unit owned queue values from the readQueue into the real queues. */
 void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
   uint2 packet;
   for (int i = 0; i < n; i++) {
@@ -138,46 +147,57 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Packet Functions ****/
 /**************************/
 
+/* Return the packet type. */
 uint pkt_get_type(packet p) {
   return (p.x & PKT_TYPE_MASK) >> PKT_TYPE_SHIFT;
 }
 
+/* Return the packet destination address. */
 uint pkt_get_dest(packet p) {
   return (p.x & PKT_DEST_MASK) >> PKT_DEST_SHIFT;
 }
 
+/* Return the packet argument position. */
 uint pkt_get_arg(packet p) {
   return (p.x & PKT_ARG_MASK) >> PKT_ARG_SHIFT;
 }
 
+/* Return the packet subtask. */
 uint pkt_get_sub(packet p) {
   return (p.x & PKT_SUB_MASK) >> PKT_SUB_SHIFT;
 }
 
+/* Return the packet payload. */
 uint pkt_get_payload(packet p) {
   return p.y;
 }
 
+/* Set the packet type. */
 void pkt_set_type(packet *p, uint type) {
   (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_SHIFT) & PKT_TYPE_MASK);
 }
 
+/* Set the packet destination address. */
 void pkt_set_dest(packet *p, uint dest) {
   (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_SHIFT) & PKT_DEST_MASK);
 }
 
+/* Set the packet argument position. */
 void pkt_set_arg(packet *p, uint arg) {
   (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
 }
 
+/* Set the packet subtask. */
 void pkt_set_sub(packet *p, uint sub) {
   (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_SHIFT) & PKT_SUB_MASK);
 }
 
+/* Set the packet payload. */
 void pkt_set_payload(packet *p, uint payload) {
   (*p).y = payload;
 }
 
+/* Return a newly created packet. */
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
   packet p = 0;
   pkt_set_type(&p, type);
@@ -193,43 +213,43 @@ packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
 /**** Queue Functions ****/
 /*************************/
 
-/* Returns the array index of the head element of the queue specifided by 'id' */
+/* Returns the array index of the head element of the queue. */
 uint q_get_head_index(size_t id, size_t gid, __global uint2 *q, int n) {
   ushort2 indices = as_ushort2(q[id * n + gid].x);
   return indices.x;
 }
 
-/* Returns the array index of the tail element of the queue specified by 'id'. */
+/* Returns the array index of the tail element of the queue. */
 uint q_get_tail_index(size_t id, size_t gid,__global uint2 *q, int n) {
   ushort2 indices = as_ushort2(q[id * n + gid].x);
   return indices.y;
 }
 
-/* Set the array index of the head element of the queue specified by 'id'. */
+/* Set the array index of the head element of the queue. */
 void q_set_head_index(uint index, size_t id, size_t gid, __global uint2 *q, int n) {
   ushort2 indices = as_ushort2(q[id * n + gid].x);
   indices.x = index;
   q[id * n + gid].x = as_uint(indices);
 }
 
-/* Set the array index of the tail element of the queue specified by 'id'. */
+/* Set the array index of the tail element of the queue. */
 void q_set_tail_index(uint index, size_t id, size_t gid,__global uint2 *q, int n) {
   ushort2 indices = as_ushort2(q[id * n + gid].x);
   indices.y = index;
   q[id * n + gid].x = as_uint(indices);
 }
 
-/* Set the type of the operation last performed on the queue specified by 'id'. */
+/* Set the type of the operation last performed on the queue. */
 void q_set_last_op(uint type, size_t id, size_t gid, __global uint2 *q, int n) {
   q[id * n + gid].y = type;
 }
 
-/* Returns true if the last operation performed on the queue specified by 'id' is a read, false otherwise. */
+/* Returns true if the last operation performed on the queue is a read, false otherwise. */
 bool q_last_op_is_read(size_t id, size_t gid,__global uint2 *q, int n) {
   return q[id * n + gid].y == READ;
 }
 
-/* Returns true if the last operation performed on the queue specified by 'id' is a write, false otherwise. */
+/* Returns true if the last operation performed on the queue is a write, false otherwise. */
 bool q_last_op_is_write(size_t id, size_t gid,__global uint2 *q, int n) {
   return q[id * n + gid].y == WRITE;
 }
@@ -246,13 +266,14 @@ bool q_is_full(size_t id, size_t gid, __global uint2 *q, int n) {
     && q_last_op_is_write(id, gid, q, n);
 }
 
+/* Return the size of the queue. */
 uint q_size(size_t id, size_t gid, __global uint2 *q, int n) {
   uint head = q_get_head_index(id, gid, q, n);
   uint tail = q_get_tail_index(id, gid, q, n);
   return (tail > head) ? (tail - head) : (head - tail);
 }
  
-/* Read the value located at the head index into 'result' from the queue specified by 'id'.
+/* Read the value located at the head index of the queue into 'result'.
  * Returns true if succcessful (queue is not empty), false otherwise. */ 
 bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   size_t gid = get_global_id(0);
@@ -267,7 +288,7 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   return true;
 }
 
-/* Write a value into the tail index of the queue specified by 'id'.
+/* Write a value into the tail index of the queue.
  * Returns true if successful (queue is not full), false otherwise. */
 bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   size_t gid = get_global_id(0);
