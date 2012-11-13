@@ -22,9 +22,18 @@ typedef struct ushort2 {
   unsigned short y;
 } ushort2;
 
-ushort2 dummy_ushort2;
-
 /* Functions */
 #define get_global_id(n) 0
-#define as_ushort2(n) dummy_ushort2
-#define as_uint(n) 0
+
+ushort2 as_ushort2(uint n) {
+  ushort2 u;
+  u.x = (n >> 16);
+  u.y = (n & 0xFFFF);
+  return u;
+}
+
+uint as_uint(ushort2 n) {
+  uint u = n.x;
+  u = (u << 16) | n.y;
+  return u;
+}
