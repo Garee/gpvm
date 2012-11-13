@@ -273,9 +273,11 @@ bool q_is_full(size_t id, size_t gid, __global uint2 *q, int n) {
 
 /* Return the size of the queue. */
 uint q_size(size_t id, size_t gid, __global uint2 *q, int n) {
+  if (q_is_full(id, gid, q, n)) return QUEUE_SIZE;
+  if (q_is_empty(id, gid, q, n)) return 0;
   uint head = q_get_head_index(id, gid, q, n);
   uint tail = q_get_tail_index(id, gid, q, n);
-  return (tail > head) ? (tail - head) : (head - tail);
+  return (tail > head) ? (tail - head) : QUEUE_SIZE - head;
 }
  
 /* Read the value located at the head index of the queue into 'result'.

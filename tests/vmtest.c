@@ -24,6 +24,7 @@ void q_destroy(packet *q) {
   free(q);
 }
 
+/* Unit Tests */
 static char *test_pkt_get_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   mu_assert("FAIL: test_pkt_get_type [1]", pkt_get_type(p) == REFERENCE);
@@ -157,49 +158,167 @@ static char *test_q_set_tail_index() {
 }
 
 static char *test_q_set_last_op() {
+  packet *q = q_create();
+  q_set_last_op(WRITE, 0, 0, q, 4);
+  mu_assert("FAIL: test_q_set_last_op [1]", q_last_op_is_write(0, 0, q, 4));
+  q_set_last_op(READ, 4, 0, q, 4);
+  mu_assert("FAIL: test_q_set_last_op [2]", !q_last_op_is_write(4, 0, q, 4));
+  mu_assert("FAIL: test_q_set_last_op [3]", q_last_op_is_read(4, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_last_op_is_read() {
+  packet *q = q_create();
+  q_set_last_op(READ, 0, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_read [1]", q_last_op_is_read(0, 0, q, 4));
+  q_set_last_op(READ, 1, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_read [2]", q_last_op_is_read(1, 0, q, 4));
+  q_set_last_op(READ, 2, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_read [3]", q_last_op_is_read(2, 0, q, 4));
+  q_set_last_op(WRITE, 3, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_read [4]", !q_last_op_is_read(3, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_last_op_is_write() {
+  packet *q = q_create();
+  q_set_last_op(WRITE, 0, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_write [1]", q_last_op_is_write(0, 0, q, 4));
+  q_set_last_op(WRITE, 1, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_write [2]", q_last_op_is_write(1, 0, q, 4));
+  q_set_last_op(WRITE, 2, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_write [3]", q_last_op_is_write(2, 0, q, 4));
+  q_set_last_op(READ, 3, 0, q, 4);
+  mu_assert("FAIL: test_q_last_op_is_write [4]", !q_last_op_is_write(3, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_is_empty() {
+  packet *q = q_create();
+  packet p = pkt_create(ERROR, 0, 0, 0, 0);
+  mu_assert("FAIL: test_q_is_empty [1]", q_is_empty(0, 0, q, 4));
+  q_write(p, 0, q, 4);
+  mu_assert("FAIL: test_q_is_empty [2]", !q_is_empty(0, 0, q, 4));
+  q_read(&p, 0, q, 4);
+  mu_assert("FAIL: test_q_is_empty [3]", q_is_empty(0, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_is_full() {
+  packet *q = q_create();
+  packet p = pkt_create(ERROR, 0, 0, 0, 0);
+  mu_assert("FAIL: test_q_is_full [1]", !q_is_full(0, 0, q, 4));
+  for (int i = 0; i < 16; i++) {
+    q_write(p, 0, q, 4);
+  }
+  mu_assert("FAIL: test_q_is_full [2]", q_is_full(0, 0, q, 4));
+  q_read(&p, 0, q, 4);
+  mu_assert("FAIL: test_q_is_full [3]", !q_is_full(0, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_size() {
+  packet *q = q_create();
+  packet p = pkt_create(ERROR, 0, 0, 0, 0);
+  mu_assert("FAIL: test_q_size [1]", q_size(0, 0, q, 4) == 0);
+  for (int i = 0; i < 20; i++) {
+    q_write(p, 0, q, 4);
+  }
+  mu_assert("FAIL: test_q_size [2]", q_size(0, 0, q, 4) == 16);
+  q_read(&p, 0, q, 4);
+  mu_assert("FAIL: test_q_size [3]", q_size(0, 0, q, 4) == 15);
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_read() {
+  packet *q = q_create();
+  packet p = pkt_create(REFERENCE, 0, 0, 0, 0);
+  packet p2 = pkt_create(ERROR, 0, 0, 0, 0);
+  q_write(p, 0, q, 4);
+  q_read(&p2, 0, q, 4);
+  mu_assert("FAIL: test_q_read [1]", (p.x == p2.x) && (p.y == p2.y));
+  q_read(&p2, 0, q, 4);
+  mu_assert("FAIL: test_q_read [2]", !q_read(&p2, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_q_write() {
+  packet *q = q_create();
+  packet p = pkt_create(DATA, 1, 2, 3, 4);
+  q_write(p, 0, q, 4);
+  mu_assert("FAIL: test_q_write [1]", !q_is_empty(0, 0, q, 4));
+  q_write(p, 0, q, 4);
+  mu_assert("FAIL: test_q_write [2]", q_size(0, 0, q, 4) == 2);
+  for (int i = 0; i < 14; i++) {
+    q_write(p, 0, q, 4);
+  }
+  mu_assert("FAIL: test_q_write [3]", !q_write(p, 0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_cunit_q_is_empty() {
+  packet *q = q_create();
+  packet p = pkt_create(DATA, 1, 2, 3, 4);
+  mu_assert("FAIL: test_cunit_is_empty [1]", cunit_q_is_empty(0, q, 4));
+  q_write(p, 0, q, 4);
+  mu_assert("FAIL: test_cunit_is_empty [2]", !cunit_q_is_empty(0, q, 4));
+  mu_assert("FAIL: test_cunit_is_empty [3]", cunit_q_is_empty(1, q, 4));
+  mu_assert("FAIL: test_cunit_is_empty [4]", cunit_q_is_empty(2, q, 4));
+  mu_assert("FAIL: test_cunit_is_empty [5]", cunit_q_is_empty(3, q, 4));
+  q_destroy(q);
   return NULL;
 }
+
 static char *test_cunit_q_is_full() {
+  packet *q = q_create();
+  mu_assert("FAIL: test_cunit_is_full [1]", !cunit_q_is_full(0, q, 4));
+  mu_assert("FAIL: test_cunit_is_full [3]", !cunit_q_is_full(1, q, 4));
+  mu_assert("FAIL: test_cunit_is_full [4]", !cunit_q_is_full(2, q, 4));
+  mu_assert("FAIL: test_cunit_is_full [5]", !cunit_q_is_full(3, q, 4));
+
+  /* Can't simply test for cunit fullness - Forced to hack. */
+  packet p;
+  p.x = 0;
+  p.y = WRITE;
+  q[0] = q[1] = q[2] = q[3] = p;
+  mu_assert("FAIL: test_cunit_is_full [6]", cunit_q_is_full(0, q, 4));
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_cunit_q_size() {
+  packet *q = q_create();
+  packet p = pkt_create(DATA, 1, 2, 3, 4);
+  mu_assert("FAIL: test_cunit_q_size", cunit_q_size(0, q, 4) == 0);
+  q_write(p, 0, q, 4);
+  mu_assert("FAIL: test_cunit_q_size", cunit_q_size(0, q, 4) == 1);
+  for (int i = 0; i < 20; i++) {
+    q_write(p, 0, q, 4);
+  }
+  mu_assert("FAIL: test_cunit_q_size", cunit_q_size(0, q, 4) == 16);
+  q_destroy(q);
   return NULL;
 }
 
 static char *test_transferRQ() {
+  packet *q = q_create();
+  packet *rq = q_create();
+  packet p = pkt_create(DATA, 1, 2, 3, 4);
+  packet p2;
+  q_write(p, 0, rq, 4);
+  transferRQ(rq, q, 4);
+  q_read(&p2, 0, q, 4);
+  mu_assert("FAIL: test_transferRQ", (p.x == p2.x) && (p.y == p2.y));
+  q_destroy(q);
+  q_destroy(rq);
   return NULL;
 }
  
