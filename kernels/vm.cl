@@ -12,18 +12,61 @@
 #define PKT_ARG_MASK   0x3C00   // 00000000000000000011110000000000
 #define PKT_SUB_MASK   0xFFC000 // 00000000111111111100000000000000
 
-/* Packet Types */
+/* Used to access the information stored within a subtask record. */
+#define NARGS_ABSENT_SHIFT   0
+#define SUBTREC_STATUS_SHIFT 4
+#define NARGS_ABSENT_MASK    0xF
+#define SUBTREC_STATUS_MASK  0xF0
+
+/* Packet Types. */
 #define ERROR     0
 #define REFERENCE 1
 #define REQUEST   2
 #define DATA      3
 
+/* Subtask record status. */
+#define NEW        0
+#define PROCESSING 1
+#define PENDING    2
+
+/* Arg status. */
+#define ABSENT     0
+#define REQUESTING 1
+#define PRESENT    2
+
 typedef uint2 packet;
 
+typedef struct subt_rec {
+  uint service_id;            // [32bits] Opcode
+  uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
+  uchar arg_mode[QUEUE_SIZE]; // [4bits]
+  uchar subt_status;          // [4bits]  Subtask status, [4bits] number of args absent.
+  uchar return_to;            // [8bits]
+  ushort return_as;           // [16bits] Subtask address + argument position.
+} subt_rec;
+
+/***********************************/
+/******* Function Prototypes *******/
+/***********************************/
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
+
+uint subt_rec_get_service_id(subt_rec r);
+uint subt_rec_get_arg(subt_rec r, uint arg_pos);
+uint subt_rec_get_arg_mode(subt_rec r, uint arg_pos);
+uint subt_rec_get_subt_status(subt_rec r);
+uint subt_rec_get_nargs_absent(subt_rec r);
+uint subt_rec_get_return_to(subt_rec r);
+uint subt_rec_get_return_as(subt_rec r);
+void subt_rec_set_service_id(subt_rec *r, uint service_id);
+void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg);
+void subt_rec_set_arg_mode(subt_rec *r, uint arg_pos, uint mode);
+void subt_rec_set_subt_status(subt_rec *r, uint status);
+void subt_rec_set_nargs_absent(subt_rec *r, uint n);
+void subt_rec_set_return_to(subt_rec *r, uint return_to);
+void subt_rec_set_return_as(subt_rec *r, uint return_as);
 
 uint pkt_get_type(packet p);
 uint pkt_get_dest(packet p);
@@ -146,6 +189,67 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
       q_write(packet, i, q, n);
     }
   }
+}
+
+/**********************************/
+/**** Subtask Record Functions ****/
+/**********************************/
+uint subt_rec_get_service_id(subt_rec r) {
+  return r.service_id;
+}
+
+uint subt_rec_get_arg(subt_rec r, uint arg_pos) {
+  return r.args[arg_pos];
+}
+
+uint subt_rec_get_arg_mode(subt_rec r, uint arg_pos) {
+  return r.arg_mode[arg_pos];
+}
+
+uint subt_rec_get_subt_status(subt_rec r) {
+  return (r.subt_status & SUBTREC_STATUS_MASK) >> SUBTREC_STATUS_SHIFT;
+}
+
+uint subt_rec_get_nargs_absent(subt_rec r) {
+  return (r.subt_status & NARGS_ABSENT_MASK);
+}
+
+uint subt_rec_get_return_to(subt_rec r) {
+  return r.return_to;
+}
+
+uint subt_rec_get_return_as(subt_rec r) {
+  return r.return_as;
+}
+
+void subt_rec_set_service_id(subt_rec *r, uint service_id) {
+  r->service_id = service_id;
+}
+
+void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg) {
+  r->args[arg_pos] = arg;
+}
+
+void subt_rec_set_arg_mode(subt_rec *r, uint arg_pos, uint mode) {
+  r->arg_mode[arg_pos] = mode;
+}
+
+void subt_rec_set_subt_status(subt_rec *r, uint status) {
+  r->subt_status = (r->subt_status & ~SUBTREC_STATUS_MASK) 
+    | ((status << SUBTREC_STATUS_SHIFT) & SUBTREC_STATUS_MASK);
+}
+
+void subt_rec_set_nargs_absent(subt_rec *r, uint n) {
+  r->subt_status = (r->subt_status & ~NARGS_ABSENT_MASK) 
+    | ((n << NARGS_ABSENT_SHIFT) & NARGS_ABSENT_MASK);
+}
+
+void subt_rec_set_return_to(subt_rec *r, uint return_to) {
+  r->return_to = return_to;
+}
+
+void subt_rec_set_return_as(subt_rec *r, uint return_as) {
+  r->return_as = return_as;
 }
 
 /**************************/

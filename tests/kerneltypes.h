@@ -8,6 +8,8 @@
 #define __global
 #define __kernel
 #define uint unsigned int
+#define uchar unsigned char
+#define ushort unsigned short
 #define bool int
 #define true 1
 #define false 0
