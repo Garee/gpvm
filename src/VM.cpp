@@ -12,11 +12,13 @@ const char *KERNEL_FILE = "kernels/vm.cl";
 const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 "
                             "-D COMPLETE=-1 " 
                             "-D READ=0 "
-                            "-D WRITE=1";
+                            "-D WRITE=1 "
+                            "-D CSTORE_SIZE=256";
 const int QUEUE_SIZE = 16;
 const int COMPLETE = -1;
 const int READ = 0;
 const int WRITE = 1;
+const int CSTORE_SIZE = 256;
 
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 
@@ -86,6 +88,8 @@ int main() {
     int *state = new int;
     *state = WRITE;
 
+    cl_ulong *cStore = new cl_ulong[CSTORE_SIZE];
+
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(cl_uint2));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(cl_uint2), queues);
@@ -96,11 +100,15 @@ int main() {
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
 
+    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * (sizeof(cl_ulong) * QUEUE_SIZE));
+    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * (sizeof(cl_ulong) * QUEUE_SIZE), cStore);
+
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
     kernel.setArg(1, rqBuffer);
     kernel.setArg(2, computeUnits);
     kernel.setArg(3, stateBuffer);
+    kernel.setArg(4, cStoreBuffer);
 
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);

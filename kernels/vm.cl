@@ -34,12 +34,16 @@
 #define REQUESTING 1
 #define PRESENT    2
 
+/* Arg mode. */
+#define BY_VAL 0
+#define BY_REF 1
+
 typedef uint2 packet;
 
 typedef struct subt_rec {
   uint service_id;            // [32bits] Opcode
   uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
-  uchar arg_mode[QUEUE_SIZE]; // [4bits]
+  uchar arg_mode[QUEUE_SIZE]; // [4bits] Arg status, [4bits] Arg mode
   uchar subt_status;          // [4bits]  Subtask status, [4bits] number of args absent.
   uchar return_to;            // [8bits]
   ushort return_as;           // [16bits] Subtask address + argument position.
@@ -96,7 +100,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 /******* The Kernel *******/
 /**************************/
-__kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state) {
+__kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state, __global ulong *cStore) {
   size_t gid = get_global_id(0);
  
   if (*state == WRITE) {
