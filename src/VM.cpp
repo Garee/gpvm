@@ -13,12 +13,25 @@ const char *KERNEL_MACROS = "-D QUEUE_SIZE=16 "
                             "-D COMPLETE=-1 " 
                             "-D READ=0 "
                             "-D WRITE=1 "
-                            "-D CSTORE_SIZE=256";
+                            "-D CSTORE_SIZE=256 "
+                            "-D SUBT_SIZE=1024";
 const int QUEUE_SIZE = 16;
 const int COMPLETE = -1;
 const int READ = 0;
 const int WRITE = 1;
-const int CSTORE_SIZE = 256;
+const int CSTORE_SIZE = 256 * QUEUE_SIZE;
+const int SUBT_SIZE = 1024;
+
+typedef cl_ulong bytecode;
+
+typedef struct subt_rec {
+  cl_uint service_id;            // [32bits] Opcode
+  cl_uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
+  cl_uchar arg_mode[QUEUE_SIZE]; // [4bits] Arg status, [4bits] Arg mode
+  cl_uchar subt_status;          // [4bits]  Subtask status, [4bits] number of args absent.
+  cl_uchar return_to;            // [8bits]
+  cl_ushort return_as;           // [16bits] Subtask address + argument position.
+} subt_rec; 
 
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 
@@ -85,10 +98,24 @@ int main() {
       readQueues[i].y = 0;
     }
 
+    /* Which stage of the READ/WRITE cycle are we in? */
     int *state = new int;
     *state = WRITE;
 
-    cl_ulong *cStore = new cl_ulong[CSTORE_SIZE];
+    /* The code store. */
+    bytecode *cStore = new bytecode[CSTORE_SIZE];
+
+    /* The subtask table. */
+    subt_rec *subt = new subt_rec[SUBT_SIZE];
+
+    /* The available subtask table records. */
+    size_t *avSubtRecs = new size_t[SUBT_SIZE + 1];
+    avSubtRecs[0] = 0; // First index keeps track of top of the stack.
+    
+    /* Populate the stack with the available records in the subtask table. */
+    for (int i = 1; i < SUBT_SIZE + 1; i++) {
+      avSubtRecs[i] = i - 1;
+    }
 
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(cl_uint2));
@@ -100,8 +127,14 @@ int main() {
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
 
-    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * (sizeof(cl_ulong) * QUEUE_SIZE));
-    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * (sizeof(cl_ulong) * QUEUE_SIZE), cStore);
+    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * sizeof(bytecode));
+    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * sizeof(bytecode), cStore);
+
+    cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(subt_rec));
+    commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(subt_rec), subt);
+
+    cl::Buffer avSubtRecsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(size_t));
+    commandQueue.enqueueWriteBuffer(avSubtRecsBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(size_t), avSubtRecs);
 
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
@@ -109,6 +142,8 @@ int main() {
     kernel.setArg(2, computeUnits);
     kernel.setArg(3, stateBuffer);
     kernel.setArg(4, cStoreBuffer);
+    kernel.setArg(5, subtBuffer);
+    kernel.setArg(6, avSubtRecsBuffer);
 
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
@@ -142,6 +177,9 @@ int main() {
     /* Cleanup */
     delete[] queues;
     delete[] readQueues;
+    delete[] cStore;
+    delete[] subt;
+    delete[] avSubtRecs;
     delete state;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;

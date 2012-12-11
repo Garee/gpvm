@@ -3,6 +3,7 @@
 #define WRITE 1
 #define COMPLETE -1
 #define QUEUE_SIZE 16
+#define SUBT_SIZE 256
 
 /* Types */
 #define __global
@@ -10,6 +11,7 @@
 #define uint unsigned int
 #define uchar unsigned char
 #define ushort unsigned short
+#define ulong unsigned long
 #define bool int
 #define true 1
 #define false 0

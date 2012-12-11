@@ -38,8 +38,13 @@
 #define BY_VAL 0
 #define BY_REF 1
 
+/* A packet is 2x32bit integers. */
 typedef uint2 packet;
 
+/* Bytecode is 64bit. */
+typedef ulong bytecode;
+
+/* A subtask table record. */
 typedef struct subt_rec {
   uint service_id;            // [32bits] Opcode
   uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
@@ -56,6 +61,15 @@ bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
+
+bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs);
+
+bool avSubtRecs_push(size_t i, size_t *avSubtRecs);
+bool avSubtRecs_pop(size_t *result, size_t *avSubtRecs);
+bool avSubtRecs_is_empty(size_t *avSubtRecs);
+bool avSubtRecs_is_full(size_t *avSubtRecs);
+size_t avSubtRecs_top(size_t *avSubtRecs);
+void avSubtRecs_set_top(size_t top, size_t *avSubtRecs);
 
 uint subt_rec_get_service_id(subt_rec r);
 uint subt_rec_get_arg(subt_rec r, uint arg_pos);
@@ -74,12 +88,12 @@ void subt_rec_set_return_as(subt_rec *r, uint return_as);
 
 uint pkt_get_type(packet p);
 uint pkt_get_dest(packet p);
-uint pkt_get_arg(packet p);
+uint pkt_get_arg_pos(packet p);
 uint pkt_get_sub(packet p);
 uint pkt_get_payload(packet p);
 void pkt_set_type(packet *p, uint type);
 void pkt_set_dest(packet *p, uint dest);
-void pkt_set_arg(packet *p, uint arg);
+void pkt_set_arg_pos(packet *p, uint arg);
 void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload(packet *p, uint payload);
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
@@ -100,7 +114,14 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 /******* The Kernel *******/
 /**************************/
-__kernel void vm(__global uint2 *q, __global uint2 *rq, int n, __global int *state, __global ulong *cStore) {
+__kernel void vm(__global uint2 *q,            /* Compute unit queues. */
+		 __global uint2 *rq,           /* Transfer queues for READ state. */
+		 int n,                        /* The number of compute units. */
+		 __global int *state,          /* Are we in the READ or WRITE state? */
+		 __global bytecode *cStore,    /* The code store. */
+		 __global subt_rec *subt,      /* The subtask table. */
+		 __global size_t *avSubtRecs   /* The available subtask table records. */
+		 ) {
   size_t gid = get_global_id(0);
  
   if (*state == WRITE) {
@@ -195,6 +216,68 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
   }
 }
 
+/*********************************/
+/**** Subtask Table Functions ****/
+/*********************************/
+
+/* Insert a record into the subtask table.
+ * Returns true if successful (table is not full), false otherwise. */
+bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs) {
+  size_t i;
+  if (!avSubtRecs_pop(&i, avSubtRecs)) {
+    return false;
+  }
+  
+  subt_rec r;
+  subt_rec_set_subt_status(&r, NEW);
+  subt_rec_set_arg(&r, pkt_get_arg_pos(p), pkt_get_payload(p)); // If packet has DATA type.                   
+
+  subt[i] = r;
+  return true;
+}
+
+/*********************************************************/
+/**** Available Subtask Table Records Stack Functions ****/
+/*********************************************************/
+
+bool avSubtRecs_push(size_t i, size_t *avSubtRecs) {
+  if (avSubtRecs_is_full(avSubtRecs)) {
+    return false;
+  }
+
+  size_t top = avSubtRecs_top(avSubtRecs) - 1;
+  avSubtRecs[top] = i;
+  avSubtRecs_set_top(top, avSubtRecs);
+  return true;
+}
+
+bool avSubtRecs_pop(size_t *result, size_t *avSubtRecs) {
+  if (avSubtRecs_is_empty(avSubtRecs)) {
+    return false;
+  }
+
+  size_t top = avSubtRecs_top(avSubtRecs);
+  *result = avSubtRecs[top];
+  avSubtRecs_set_top(top + 1, avSubtRecs);
+  return true;
+}
+
+bool avSubtRecs_is_empty(size_t *avSubtRecs) {
+  return avSubtRecs_top(avSubtRecs) == SUBT_SIZE - 1;
+}
+
+bool avSubtRecs_is_full(size_t *avSubtRecs) {
+  return avSubtRecs_top(avSubtRecs) == 0;
+}
+
+size_t avSubtRecs_top(size_t *avSubtRecs) {
+  return avSubtRecs[0];
+}
+
+void avSubtRecs_set_top(size_t top, size_t *avSubtRecs) {
+  avSubtRecs[0] = top;
+}
+
 /**********************************/
 /**** Subtask Record Functions ****/
 /**********************************/
@@ -271,7 +354,7 @@ uint pkt_get_dest(packet p) {
 }
 
 /* Return the packet argument position. */
-uint pkt_get_arg(packet p) {
+uint pkt_get_arg_pos(packet p) {
   return (p.x & PKT_ARG_MASK) >> PKT_ARG_SHIFT;
 }
 
@@ -296,7 +379,7 @@ void pkt_set_dest(packet *p, uint dest) {
 }
 
 /* Set the packet argument position. */
-void pkt_set_arg(packet *p, uint arg) {
+void pkt_set_arg_pos(packet *p, uint arg) {
   (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
 }
 
@@ -315,7 +398,7 @@ packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
   packet p;
   pkt_set_type(&p, type);
   pkt_set_dest(&p, dest);
-  pkt_set_arg(&p, arg);
+  pkt_set_arg_pos(&p, arg);
   pkt_set_sub(&p, sub);
   pkt_set_payload(&p, payload);
   return p;
@@ -417,3 +500,5 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   q_set_last_op(WRITE, id, gid, q, n);
   return true;
 }
+
+
