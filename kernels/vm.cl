@@ -236,6 +236,17 @@ bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs) {
   return true;
 }
 
+/* Get the first pending subtask record from the subtask table. */
+subt_rec *subt_get_pending(subt_rec *subt) {
+  for (int i = 0; i < SUBT_SIZE; i++) {
+    if (subt_rec_get_subt_status(subt[i]) == PENDING) {
+      return subt + i;
+    }
+  }
+
+  return NULL;
+}
+
 /*********************************************************/
 /**** Available Subtask Table Records Stack Functions ****/
 /*********************************************************/
