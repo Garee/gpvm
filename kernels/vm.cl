@@ -114,8 +114,8 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 /******* The Kernel *******/
 /**************************/
-__kernel void vm(__global uint2 *q,            /* Compute unit queues. */
-		 __global uint2 *rq,           /* Transfer queues for READ state. */
+__kernel void vm(__global packet *q,            /* Compute unit queues. */
+		 __global packet *rq,           /* Transfer queues for READ state. */
 		 int n,                        /* The number of compute units. */
 		 __global int *state,          /* Are we in the READ or WRITE state? */
 		 __global bytecode *cStore,    /* The code store. */

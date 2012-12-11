@@ -24,6 +24,8 @@ void q_destroy(packet *q) {
   free(q);
 }
 
+
+
 /* Unit Tests */
 static char *test_pkt_get_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
@@ -321,6 +323,90 @@ static char *test_transferRQ() {
   q_destroy(rq);
   return NULL;
 }
+
+static char *test_subt_rec_get_service_id() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_arg() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_arg_mode() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_subt_status() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_nargs_absent() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_return_to() {
+  return NULL;
+}
+
+static char *test_subt_rec_get_return_as() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_service_id() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_arg() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_arg_mode() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_subt_status() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_nargs_absent() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_return_to() {
+  return NULL;
+}
+
+static char *test_subt_rec_set_return_as() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_push() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_pop() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_is_empty() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_is_full() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_top() {
+  return NULL;
+}
+
+static char *test_avSubtRecs_set_top() {
+  return NULL;
+}
+
+static char *test_subt_add_rec() {
+  return NULL;
+}
  
 static char *all_tests() {
   mu_run_test(test_pkt_get_type);
@@ -352,6 +438,30 @@ static char *all_tests() {
   mu_run_test(test_cunit_q_is_full);
   mu_run_test(test_cunit_q_size);
   mu_run_test(test_transferRQ);
+
+  mu_run_test(test_subt_rec_get_service_id);
+  mu_run_test(test_subt_rec_get_arg);
+  mu_run_test(test_subt_rec_get_arg_mode);
+  mu_run_test(test_subt_rec_get_subt_status);
+  mu_run_test(test_subt_rec_get_nargs_absent);
+  mu_run_test(test_subt_rec_get_return_to);
+  mu_run_test(test_subt_rec_get_return_as);
+  mu_run_test(test_subt_rec_set_service_id);
+  mu_run_test(test_subt_rec_set_arg);
+  mu_run_test(test_subt_rec_set_arg_mode);
+  mu_run_test(test_subt_rec_set_subt_status);
+  mu_run_test(test_subt_rec_set_nargs_absent);
+  mu_run_test(test_subt_rec_set_return_to);
+  mu_run_test(test_subt_rec_set_return_as);
+
+  mu_run_test(test_avSubtRecs_push); 
+  mu_run_test(test_avSubtRecs_pop); 
+  mu_run_test(test_avSubtRecs_is_empty); 
+  mu_run_test(test_avSubtRecs_is_full); 
+  mu_run_test(test_avSubtRecs_top); 
+  mu_run_test(test_avSubtRecs_set_top); 
+
+  mu_run_test(test_subt_add_rec);
   return NULL;
 }
  
