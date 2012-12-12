@@ -54,6 +54,12 @@ typedef struct subt_rec {
   ushort return_as;           // [16bits] Subtask address + argument position.
 } subt_rec;
 
+/* The subtask table with associated available record stack. */
+typedef struct subt {
+  subt_rec recs[SUBT_SIZE];             // The subtask table records.
+  ushort av_recs[SUBT_SIZE + 1];        // Stack of available records.
+} subt;
+
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
@@ -62,14 +68,13 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
-bool subt_add_rec(packet p, subt_rec *subt, ushort *avSubtRecs);
-
-bool avSubtRecs_push(ushort i, ushort *avSubtRecs);
-bool avSubtRecs_pop(ushort *result, ushort *avSubtRecs);
-bool avSubtRecs_is_empty(ushort *avSubtRecs);
-bool avSubtRecs_is_full(ushort *avSubtRecs);
-ushort avSubtRecs_top(ushort *avSubtRecs);
-void avSubtRecs_set_top(ushort top, ushort *avSubtRecs);
+bool subt_add_rec(subt_rec rec, subt *subt);
+bool subt_push(ushort i, subt *subt);
+bool subt_pop(ushort *result, subt *subt);
+bool subt_is_full(subt *subt);
+bool subt_is_empty(subt *subt);
+ushort subt_top(subt *subt);
+void subt_set_top(ushort i, subt *subt);
 
 uint subt_rec_get_service_id(subt_rec r);
 uint subt_rec_get_arg(subt_rec r, uint arg_pos);
@@ -119,8 +124,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
 		 int n,                        /* The number of compute units. */
 		 __global int *state,          /* Are we in the READ or WRITE state? */
 		 __global bytecode *cStore,    /* The code store. */
-		 __global subt_rec *subt,      /* The subtask table. */
-		 __global ushort *avSubtRecs   /* The available subtask table records. */
+		 __global subt *subt      /* The subtask table. */
 		 ) {
   size_t gid = get_global_id(0);
  
@@ -222,60 +226,52 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 
 /* Insert a record into the subtask table.
  * Returns true if successful (table is not full), false otherwise. */
-bool subt_add_rec(packet p, subt_rec *subt, ushort *avSubtRecs) {
+bool subt_add_rec(subt_rec rec, subt *subt) {
   ushort i;
-  if (!avSubtRecs_pop(&i, avSubtRecs)) {
+  if (!subt_pop(&i, subt)) {
     return false;
   }
   
-  subt_rec r;
-  subt_rec_set_subt_status(&r, NEW);
-  subt_rec_set_arg(&r, pkt_get_arg_pos(p), pkt_get_payload(p)); // If packet has DATA type.                   
-
-  subt[i] = r;
+  subt->recs[i] = rec;
   return true;
 }
 
-/*********************************************************/
-/**** Available Subtask Table Records Stack Functions ****/
-/*********************************************************/
-
-bool avSubtRecs_push(ushort i, ushort *avSubtRecs) {
-  if (avSubtRecs_is_full(avSubtRecs)) {
+bool subt_push(ushort i, subt *subt) {
+  if (subt_is_full(subt)) {
     return false;
   }
 
-  ushort top = avSubtRecs_top(avSubtRecs) - 1;
-  avSubtRecs[top] = i;
-  avSubtRecs_set_top(top, avSubtRecs);
+  ushort top = subt_top(subt);
+  subt->av_recs[top + 1] = i;
+  subt_set_top(top + 1, subt);
   return true;
 }
 
-bool avSubtRecs_pop(ushort *result, ushort *avSubtRecs) {
-  if (avSubtRecs_is_empty(avSubtRecs)) {
+bool subt_pop(ushort *result, subt *subt) {
+  if (subt_is_empty(subt)) {
     return false;
   }
-
-  ushort top = avSubtRecs_top(avSubtRecs);
-  *result = avSubtRecs[top];
-  avSubtRecs_set_top(top + 1, avSubtRecs);
+  
+  ushort top = subt_top(subt);
+  *result = subt->av_recs[top];
+  subt_set_top(top - 1, subt);
   return true;
 }
 
-bool avSubtRecs_is_empty(ushort *avSubtRecs) {
-  return avSubtRecs_top(avSubtRecs) == SUBT_SIZE - 1;
+bool subt_is_full(subt *subt) {
+  return subt_top(subt) == SUBT_SIZE; 
 }
 
-bool avSubtRecs_is_full(ushort *avSubtRecs) {
-  return avSubtRecs_top(avSubtRecs) == 0;
+bool subt_is_empty(subt *subt) {
+  return subt_top(subt) == 0;
 }
 
-ushort avSubtRecs_top(ushort *avSubtRecs) {
-  return avSubtRecs[0];
+ushort subt_top(subt *subt) {
+  return subt->av_recs[0];
 }
 
-void avSubtRecs_set_top(ushort top, ushort *avSubtRecs) {
-  avSubtRecs[0] = top;
+void subt_set_top(ushort i, subt *subt) {
+  subt->av_recs[0] = i;
 }
 
 /**********************************/

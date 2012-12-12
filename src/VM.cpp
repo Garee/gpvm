@@ -33,7 +33,14 @@ typedef struct subt_rec {
   cl_ushort return_as;           // [16bits] Subtask address + argument position.
 } subt_rec; 
 
+/* The subtask table with associated available record stack. */
+typedef struct subt {
+  subt_rec recs[SUBT_SIZE];             // The subtask table records.
+  cl_ushort av_recs[SUBT_SIZE + 1];     // Stack of available records.
+} subt;
+
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
+subt *createSubt();
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -106,16 +113,7 @@ int main() {
     bytecode *cStore = new bytecode[CSTORE_SIZE];
 
     /* The subtask table. */
-    subt_rec *subt = new subt_rec[SUBT_SIZE];
-
-    /* The available subtask table records. */
-    cl_ushort *avSubtRecs = new cl_ushort[SUBT_SIZE + 1];
-    avSubtRecs[0] = 0; // First index keeps track of top of the stack.
-    
-    /* Populate the stack with the available records in the subtask table. */
-    for (int i = 1; i < SUBT_SIZE + 1; i++) {
-      avSubtRecs[i] = i - 1;
-    }
+    subt *subt = createSubt();
 
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(cl_uint2));
@@ -130,11 +128,8 @@ int main() {
     cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * sizeof(bytecode), cStore);
 
-    cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(subt_rec));
-    commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(subt_rec), subt);
-
-    cl::Buffer avSubtRecsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(cl_ushort));
-    commandQueue.enqueueWriteBuffer(avSubtRecsBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(cl_ushort), avSubtRecs);
+    cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
+    commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
 
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
@@ -143,7 +138,6 @@ int main() {
     kernel.setArg(3, stateBuffer);
     kernel.setArg(4, cStoreBuffer);
     kernel.setArg(5, subtBuffer);
-    kernel.setArg(6, avSubtRecsBuffer);
 
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
@@ -178,8 +172,7 @@ int main() {
     delete[] queues;
     delete[] readQueues;
     delete[] cStore;
-    delete[] subt;
-    delete[] avSubtRecs;
+    delete subt;
     delete state;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
@@ -195,4 +188,16 @@ void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *s
   *state = (*state == WRITE) ? READ : WRITE;
   commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
   commandQueue.finish();
+}
+
+subt *createSubt() {
+  subt *table = new subt;
+  table->av_recs[0] = 1; // First index keeps track of top of the stack index. 
+  
+  /* Populate the stack with the available records in the subtask table. */
+  for (int i = 1; i < SUBT_SIZE + 1; i++) {
+    table->av_recs[i] = i - 1;
+  }
+
+  return table;
 }
