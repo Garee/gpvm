@@ -2,6 +2,9 @@
 #include "../tests/kerneltypes.h"
 #endif
 
+#include "SharedMacros.h"
+#include "SharedTypes.h"
+
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_SHIFT 0
 #define PKT_DEST_SHIFT 2
@@ -37,28 +40,6 @@
 /* Arg mode. */
 #define BY_VAL 0
 #define BY_REF 1
-
-/* A packet is 2x32bit integers. */
-typedef uint2 packet;
-
-/* Bytecode is 64bit. */
-typedef ulong bytecode;
-
-/* A subtask table record. */
-typedef struct subt_rec {
-  uint service_id;            // [32bits] Opcode
-  uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
-  uchar arg_mode[QUEUE_SIZE]; // [4bits] Arg status, [4bits] Arg mode
-  uchar subt_status;          // [4bits]  Subtask status, [4bits] number of args absent.
-  uchar return_to;            // [8bits]
-  ushort return_as;           // [16bits] Subtask address + argument position.
-} subt_rec;
-
-/* The subtask table with associated available record stack. */
-typedef struct subt {
-  subt_rec recs[SUBT_SIZE];             // The subtask table records.
-  ushort av_recs[SUBT_SIZE + 1];        // Stack of available records.
-} subt;
 
 /***********************************/
 /******* Function Prototypes *******/
