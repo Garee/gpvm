@@ -109,7 +109,7 @@ int main() {
     subt_rec *subt = new subt_rec[SUBT_SIZE];
 
     /* The available subtask table records. */
-    size_t *avSubtRecs = new size_t[SUBT_SIZE + 1];
+    cl_ushort *avSubtRecs = new cl_ushort[SUBT_SIZE + 1];
     avSubtRecs[0] = 0; // First index keeps track of top of the stack.
     
     /* Populate the stack with the available records in the subtask table. */
@@ -133,8 +133,8 @@ int main() {
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(subt_rec));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(subt_rec), subt);
 
-    cl::Buffer avSubtRecsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(size_t));
-    commandQueue.enqueueWriteBuffer(avSubtRecsBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(size_t), avSubtRecs);
+    cl::Buffer avSubtRecsBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SUBT_SIZE * sizeof(cl_ushort));
+    commandQueue.enqueueWriteBuffer(avSubtRecsBuffer, CL_TRUE, 0, SUBT_SIZE * sizeof(cl_ushort), avSubtRecs);
 
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);

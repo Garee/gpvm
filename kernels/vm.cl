@@ -62,14 +62,14 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
-bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs);
+bool subt_add_rec(packet p, subt_rec *subt, ushort *avSubtRecs);
 
-bool avSubtRecs_push(size_t i, size_t *avSubtRecs);
-bool avSubtRecs_pop(size_t *result, size_t *avSubtRecs);
-bool avSubtRecs_is_empty(size_t *avSubtRecs);
-bool avSubtRecs_is_full(size_t *avSubtRecs);
-size_t avSubtRecs_top(size_t *avSubtRecs);
-void avSubtRecs_set_top(size_t top, size_t *avSubtRecs);
+bool avSubtRecs_push(ushort i, ushort *avSubtRecs);
+bool avSubtRecs_pop(ushort *result, ushort *avSubtRecs);
+bool avSubtRecs_is_empty(ushort *avSubtRecs);
+bool avSubtRecs_is_full(ushort *avSubtRecs);
+ushort avSubtRecs_top(ushort *avSubtRecs);
+void avSubtRecs_set_top(ushort top, ushort *avSubtRecs);
 
 uint subt_rec_get_service_id(subt_rec r);
 uint subt_rec_get_arg(subt_rec r, uint arg_pos);
@@ -120,7 +120,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
 		 __global int *state,          /* Are we in the READ or WRITE state? */
 		 __global bytecode *cStore,    /* The code store. */
 		 __global subt_rec *subt,      /* The subtask table. */
-		 __global size_t *avSubtRecs   /* The available subtask table records. */
+		 __global ushort *avSubtRecs   /* The available subtask table records. */
 		 ) {
   size_t gid = get_global_id(0);
  
@@ -222,8 +222,8 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 
 /* Insert a record into the subtask table.
  * Returns true if successful (table is not full), false otherwise. */
-bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs) {
-  size_t i;
+bool subt_add_rec(packet p, subt_rec *subt, ushort *avSubtRecs) {
+  ushort i;
   if (!avSubtRecs_pop(&i, avSubtRecs)) {
     return false;
   }
@@ -236,56 +236,45 @@ bool subt_add_rec(packet p, subt_rec *subt, size_t *avSubtRecs) {
   return true;
 }
 
-/* Get the first pending subtask record from the subtask table. */
-subt_rec *subt_get_pending(subt_rec *subt) {
-  for (int i = 0; i < SUBT_SIZE; i++) {
-    if (subt_rec_get_subt_status(subt[i]) == PENDING) {
-      return subt + i;
-    }
-  }
-
-  return NULL;
-}
-
 /*********************************************************/
 /**** Available Subtask Table Records Stack Functions ****/
 /*********************************************************/
 
-bool avSubtRecs_push(size_t i, size_t *avSubtRecs) {
+bool avSubtRecs_push(ushort i, ushort *avSubtRecs) {
   if (avSubtRecs_is_full(avSubtRecs)) {
     return false;
   }
 
-  size_t top = avSubtRecs_top(avSubtRecs) - 1;
+  ushort top = avSubtRecs_top(avSubtRecs) - 1;
   avSubtRecs[top] = i;
   avSubtRecs_set_top(top, avSubtRecs);
   return true;
 }
 
-bool avSubtRecs_pop(size_t *result, size_t *avSubtRecs) {
+bool avSubtRecs_pop(ushort *result, ushort *avSubtRecs) {
   if (avSubtRecs_is_empty(avSubtRecs)) {
     return false;
   }
 
-  size_t top = avSubtRecs_top(avSubtRecs);
+  ushort top = avSubtRecs_top(avSubtRecs);
   *result = avSubtRecs[top];
   avSubtRecs_set_top(top + 1, avSubtRecs);
   return true;
 }
 
-bool avSubtRecs_is_empty(size_t *avSubtRecs) {
+bool avSubtRecs_is_empty(ushort *avSubtRecs) {
   return avSubtRecs_top(avSubtRecs) == SUBT_SIZE - 1;
 }
 
-bool avSubtRecs_is_full(size_t *avSubtRecs) {
+bool avSubtRecs_is_full(ushort *avSubtRecs) {
   return avSubtRecs_top(avSubtRecs) == 0;
 }
 
-size_t avSubtRecs_top(size_t *avSubtRecs) {
+ushort avSubtRecs_top(ushort *avSubtRecs) {
   return avSubtRecs[0];
 }
 
-void avSubtRecs_set_top(size_t top, size_t *avSubtRecs) {
+void avSubtRecs_set_top(ushort top, ushort *avSubtRecs) {
   avSubtRecs[0] = top;
 }
 
