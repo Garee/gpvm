@@ -3,7 +3,6 @@
 #define WRITE 1
 #define COMPLETE -1
 #define QUEUE_SIZE 16
-#define SUBT_SIZE 256
 
 /* Types */
 #define __global
