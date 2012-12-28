@@ -1,10 +1,7 @@
-/* Macros */
-#define READ 0
-#define WRITE 1
-#define COMPLETE -1
-#define QUEUE_SIZE 16
+/* This file is used to mimic the functionality of OpenCL specific types
+   so that they may be used within a regular C program and compile successfully.
+   Specifically, it is used to enable unit testing of the kernel program. */
 
-/* Types */
 #define __global
 #define __kernel
 #define uint unsigned int
