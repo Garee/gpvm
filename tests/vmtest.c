@@ -6,7 +6,7 @@
 #include "../kernels/vm.cl" 
 
 int tests_run = 0;
- 
+
 /* Helper Functions. */
 packet *q_create() {
   packet *q = malloc((16 + (QUEUE_SIZE * 16)) * sizeof(packet));
@@ -16,15 +16,13 @@ packet *q_create() {
       q[i].y = 0;
     }
   }
-
+  
   return q;
 }
 
 void q_destroy(packet *q) {
   free(q);
 }
-
-
 
 /* Unit Tests */
 static char *test_pkt_get_type() {

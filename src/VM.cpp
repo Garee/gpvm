@@ -71,7 +71,7 @@ int main() {
     /* Allocate memory for the queues. */
     packet *queues = new packet[qBufSize];
     packet *readQueues = new packet[qBufSize];
-
+    
     /* Initialise queue elements to zero. */
     for (int i = 0; i < qBufSize; i++) {
       queues[i].x = 0;
@@ -90,6 +90,15 @@ int main() {
     /* The subtask table. */
     subt *subt = createSubt();
 
+    /* Input data to be worked on. */
+    cl_char *in = new cl_char[IN_SIZE];
+    
+    /* Somewhere to store the results. */
+    cl_char *result = new cl_char[RESULT_SIZE];
+
+    /* Scratch array for storing temporary results. */
+    cl_char *scratch = new cl_char[SCRATCH_SIZE];
+
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
@@ -106,6 +115,15 @@ int main() {
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
 
+    cl::Buffer inBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
+    commandQueue.enqueueWriteBuffer(inBuffer, CL_TRUE, 0, sizeof(cl_char), in);
+
+    cl::Buffer resultBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
+    commandQueue.enqueueWriteBuffer(resultBuffer, CL_TRUE, 0, sizeof(cl_char), result);
+
+    cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
+    commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, sizeof(cl_char), scratch);
+    
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
     kernel.setArg(1, rqBuffer);
@@ -113,7 +131,10 @@ int main() {
     kernel.setArg(3, stateBuffer);
     kernel.setArg(4, cStoreBuffer);
     kernel.setArg(5, subtBuffer);
-
+    kernel.setArg(6, inBuffer);
+    kernel.setArg(7, resultBuffer);
+    kernel.setArg(8, scratchBuffer);
+    
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
 
@@ -147,13 +168,16 @@ int main() {
     delete[] queues;
     delete[] readQueues;
     delete[] cStore;
+    delete[] in;
+    delete[] result;
+    delete[] scratch;
     delete subt;
     delete state;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
     std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
   }
-
+  
   return 0;
 }
 
@@ -173,6 +197,6 @@ subt *createSubt() {
   for (int i = 1; i < SUBT_SIZE + 1; i++) {
     table->av_recs[i] = i - 1;
   }
-
+  
   return table;
 }

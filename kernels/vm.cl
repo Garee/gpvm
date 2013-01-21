@@ -102,16 +102,19 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /**************************/
 __kernel void vm(__global packet *q,            /* Compute unit queues. */
 		 __global packet *rq,           /* Transfer queues for READ state. */
-		 int n,                        /* The number of compute units. */
-		 __global int *state,          /* Are we in the READ or WRITE state? */
-		 __global bytecode *cStore,    /* The code store. */
-		 __global subt *subt      /* The subtask table. */
+		 int n,                         /* The number of compute units. */
+		 __global int *state,           /* Are we in the READ or WRITE state? */
+		 __global bytecode *cStore,     /* The code store. */
+		 __global subt *subt,           /* The subtask table. */
+		 __global char *in,             /* Input data from the host. */
+		 __global char *result,         /* Memory to store the final results. */
+		 __global char *scratch         /* Scratch memory for temporary results. */
 		 ) {
   size_t gid = get_global_id(0);
- 
+  
   if (*state == WRITE) {
     transferRQ(rq, q, n);
-
+    
     switch (gid) {
     case 0:
       break;
