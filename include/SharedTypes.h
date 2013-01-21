@@ -26,7 +26,7 @@ typedef struct subt_rec {
   uint args[QUEUE_SIZE];      // [32bits] Pointers to data or constants.
   uchar arg_mode[QUEUE_SIZE]; // [4bits] Arg status, [4bits] Arg mode
   uchar subt_status;          // [4bits]  Subtask status, [4bits] number of args absent.
-  uchar return_to;            // [8bits]
+  uchar return_to;            // [8bits] Subtask record to return to.
   ushort return_as;           // [16bits] Subtask address + argument position.
 } subt_rec; 
 

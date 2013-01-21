@@ -3,7 +3,7 @@
 #include "minunit.h"
 
 #define KERNEL_TEST_ENABLED
-#include "../kernels/vm.cl" 
+#include "../kernels/vm.cl"
 
 int tests_run = 0;
 
@@ -24,6 +24,19 @@ void q_destroy(packet *q) {
   free(q);
 }
 
+subt_rec *subt_rec_create(uint service_id) {
+  subt_rec *rec = malloc(sizeof(subt_rec));
+  if (rec) {
+    rec->service_id = service_id;
+  }
+  
+  return rec;
+}
+
+void subt_rec_destroy(subt_rec *rec) {
+  free(rec);
+}
+
 /* Unit Tests */
 static char *test_pkt_get_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
@@ -34,69 +47,69 @@ static char *test_pkt_get_type() {
 
 static char *test_pkt_get_dest() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_dest [2]", pkt_get_dest(p) != 2);
-  mu_assert("FAIL: test_pkt_get_dest [1]", pkt_get_dest(p) == 1);
+  mu_assert("FAIL: test_pkt_get_dest [1]", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_get_dest [2]", pkt_get_dest(p) == 1);
   return NULL;
 }
 
 static char *test_pkt_get_arg_pos() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_arg_pos [2]", pkt_get_arg_pos(p) != 3);
-  mu_assert("FAIL: test_pkt_get_arg_pos [1]", pkt_get_arg_pos(p) == 2);
+  mu_assert("FAIL: test_pkt_get_arg_pos [1]", pkt_get_arg_pos(p) != 3);
+  mu_assert("FAIL: test_pkt_get_arg_pos [2]", pkt_get_arg_pos(p) == 2);
   return NULL;
 }
 
 static char *test_pkt_get_sub() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_sub [2]", pkt_get_sub(p) != 4);
-  mu_assert("FAIL: test_pkt_get_sub [1]", pkt_get_sub(p) == 3);
+  mu_assert("FAIL: test_pkt_get_sub [1]", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_get_sub [2]", pkt_get_sub(p) == 3);
   return NULL;
 }
 
 static char *test_pkt_get_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_payload [2]", pkt_get_payload(p) != 1);
-  mu_assert("FAIL: test_pkt_get_payload [1]", pkt_get_payload(p) == 4);
+  mu_assert("FAIL: test_pkt_get_payload [1]", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_get_payload [2]", pkt_get_payload(p) == 4);
   return NULL;
 }
 
 static char *test_pkt_set_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_type(&p, ERROR);
-  mu_assert("FAIL: test_pkt_set_type [2]", pkt_get_type(p) != REFERENCE);
-  mu_assert("FAIL: test_pkt_set_type [1]", pkt_get_type(p) == ERROR);
+  mu_assert("FAIL: test_pkt_set_type [1]", pkt_get_type(p) != REFERENCE);
+  mu_assert("FAIL: test_pkt_set_type [2]", pkt_get_type(p) == ERROR);
   return NULL;
 }
 
 static char *test_pkt_set_dest() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_dest(&p, 7);
-  mu_assert("FAIL: test_pkt_set_dest [2]", pkt_get_dest(p) != 2);
-  mu_assert("FAIL: test_pkt_set_dest [1]", pkt_get_dest(p) == 7);
+  mu_assert("FAIL: test_pkt_set_dest [1]", pkt_get_dest(p) != 2);
+  mu_assert("FAIL: test_pkt_set_dest [2]", pkt_get_dest(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_arg_pos() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_arg_pos(&p, 7);
-  mu_assert("FAIL: test_pkt_set_arg_pos [2]", pkt_get_arg_pos(p) != 3);
-  mu_assert("FAIL: test_pkt_set_arg_pos [1]", pkt_get_arg_pos(p) == 7);
+  mu_assert("FAIL: test_pkt_set_arg_pos [1]", pkt_get_arg_pos(p) != 3);
+  mu_assert("FAIL: test_pkt_set_arg_pos [2]", pkt_get_arg_pos(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_sub() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_sub(&p, 7);
-  mu_assert("FAIL: test_pkt_set_sub [2]", pkt_get_sub(p) != 4);
-  mu_assert("FAIL: test_pkt_set_sub [1]", pkt_get_sub(p) == 7);
+  mu_assert("FAIL: test_pkt_set_sub [1]", pkt_get_sub(p) != 4);
+  mu_assert("FAIL: test_pkt_set_sub [2]", pkt_get_sub(p) == 7);
   return NULL;
 }
 
 static char *test_pkt_set_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_payload(&p, 7);
-  mu_assert("FAIL: test_pkt_set_payload [2]", pkt_get_payload(p) != 1);
-  mu_assert("FAIL: test_pkt_set_payload [1]", pkt_get_payload(p) == 7);
+  mu_assert("FAIL: test_pkt_set_payload [1]", pkt_get_payload(p) != 1);
+  mu_assert("FAIL: test_pkt_set_payload [2]", pkt_get_payload(p) == 7);
   return NULL;
 }
 
@@ -123,7 +136,7 @@ static char *test_q_get_head_index() {
 
 static char *test_q_get_tail_index() {
   packet *q = q_create();
-  packet i; 
+  packet i;
   mu_assert("FAIL: test_q_get_tail_index [1]", q_get_tail_index(0, 0, q, 4) == 0);
   q_write(i, 1, q, 4);
   q_write(i, 1, q, 4);
@@ -283,7 +296,7 @@ static char *test_cunit_q_is_full() {
   mu_assert("FAIL: test_cunit_is_full [3]", !cunit_q_is_full(1, q, 4));
   mu_assert("FAIL: test_cunit_is_full [4]", !cunit_q_is_full(2, q, 4));
   mu_assert("FAIL: test_cunit_is_full [5]", !cunit_q_is_full(3, q, 4));
-
+  
   /* Can't simply test for cunit fullness - Forced to hack. */
   packet p;
   p.x = 0;
@@ -323,58 +336,107 @@ static char *test_transferRQ() {
 }
 
 static char *test_subt_rec_get_service_id() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_service_id", subt_rec_get_service_id(*rec) == 1);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_arg() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_arg", subt_rec_get_arg(*rec, 0) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_arg_mode() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_arg_mode", subt_rec_get_arg_mode(*rec, 2) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_subt_status() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_subt_status", subt_rec_get_subt_status(*rec) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_nargs_absent() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_nargs_absent", subt_rec_get_nargs_absent(*rec) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_return_to() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_return_to", subt_rec_get_return_to(*rec) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_return_as() {
+  subt_rec *rec = subt_rec_create(1);
+  mu_assert("FAIL: test_subt_rec_get_return_as", subt_rec_get_return_as(*rec) == 0);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_service_id() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_service_id(rec, 2);
+  mu_assert("FAIL: test_subt_rec_set_service_id", subt_rec_get_service_id(*rec) == 2);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_arg() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_arg(rec, 0, 50);
+  mu_assert("FAIL: test_subt_rec_set_arg", subt_rec_get_arg(*rec, 0) == 50);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_arg_mode() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_arg_mode(rec, 0, BY_REF);
+  mu_assert("FAIL: test_subt_rec_set_arg_mode", subt_rec_get_arg_mode(*rec, 0) == BY_REF);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_subt_status() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_subt_status(rec, PROCESSING);
+  mu_assert("FAIL: test_subt_rec_set_subt_status", subt_rec_get_subt_status(*rec) == PROCESSING);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_nargs_absent() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_nargs_absent(rec, 4);
+  mu_assert("FAIL: test_subt_rec_set_nargs_absent", subt_rec_get_nargs_absent(*rec) == 4);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_return_to() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_return_to(rec, 100);
+  mu_assert("FAIL: test_subt_rec_set_return_to", subt_rec_get_return_to(*rec) == 100);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_set_return_as() {
+  subt_rec *rec = subt_rec_create(1);
+  subt_rec_set_return_as(rec, 255);
+  mu_assert("FAIL: test_subt_rec_set_return_as", subt_rec_get_return_as(*rec) == 255);
+  subt_rec_destroy(rec);
   return NULL;
 }
 
@@ -405,7 +467,7 @@ static char *test_avSubtRecs_set_top() {
 static char *test_subt_add_rec() {
   return NULL;
 }
- 
+
 static char *all_tests() {
   mu_run_test(test_pkt_get_type);
   mu_run_test(test_pkt_get_dest);
@@ -452,17 +514,17 @@ static char *all_tests() {
   mu_run_test(test_subt_rec_set_return_to);
   mu_run_test(test_subt_rec_set_return_as);
 
-  mu_run_test(test_avSubtRecs_push); 
-  mu_run_test(test_avSubtRecs_pop); 
-  mu_run_test(test_avSubtRecs_is_empty); 
-  mu_run_test(test_avSubtRecs_is_full); 
-  mu_run_test(test_avSubtRecs_top); 
-  mu_run_test(test_avSubtRecs_set_top); 
+  mu_run_test(test_avSubtRecs_push);
+  mu_run_test(test_avSubtRecs_pop);
+  mu_run_test(test_avSubtRecs_is_empty);
+  mu_run_test(test_avSubtRecs_is_full);
+  mu_run_test(test_avSubtRecs_top);
+  mu_run_test(test_avSubtRecs_set_top);
 
   mu_run_test(test_subt_add_rec);
   return NULL;
 }
- 
+
 int main(void) {
   char *result = all_tests();
   if (result) {
@@ -475,4 +537,3 @@ int main(void) {
   printf("Tests run: %d\n", tests_run);
   return result != 0;
 }
-
