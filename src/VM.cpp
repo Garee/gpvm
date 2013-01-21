@@ -89,7 +89,7 @@ int main() {
 
     /* The subtask table. */
     subt *subt = createSubt();
-
+    
     /* Input data to be worked on. */
     cl_char *in = new cl_char[IN_SIZE];
     
@@ -191,12 +191,12 @@ void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *s
 
 subt *createSubt() {
   subt *table = new subt;
-  table->av_recs[0] = 1; // First index keeps track of top of the stack index. 
+  table->av_recs[0] = 1; // First index keeps track of top of the stack index.
   
   /* Populate the stack with the available records in the subtask table. */
   for (int i = 1; i < SUBT_SIZE + 1; i++) {
     table->av_recs[i] = i - 1;
   }
-  
+
   return table;
 }

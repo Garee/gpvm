@@ -16,7 +16,7 @@ packet *q_create() {
       q[i].y = 0;
     }
   }
-  
+
   return q;
 }
 
@@ -29,12 +29,28 @@ subt_rec *subt_rec_create(uint service_id) {
   if (rec) {
     rec->service_id = service_id;
   }
-  
+
   return rec;
 }
 
 void subt_rec_destroy(subt_rec *rec) {
   free(rec);
+}
+
+subt *subt_create() {
+  subt *subt = malloc(sizeof(subt));
+  if (subt) {
+    subt->av_recs[0] = 0;
+    for (int i = 0; i < SUBT_SIZE; i++) {
+      subt->av_recs[i + 1] = i;
+    }
+  }
+
+  return subt;
+}
+
+void subt_destroy(subt *subt) {
+  free(subt);
 }
 
 /* Unit Tests */
@@ -296,7 +312,7 @@ static char *test_cunit_q_is_full() {
   mu_assert("FAIL: test_cunit_is_full [3]", !cunit_q_is_full(1, q, 4));
   mu_assert("FAIL: test_cunit_is_full [4]", !cunit_q_is_full(2, q, 4));
   mu_assert("FAIL: test_cunit_is_full [5]", !cunit_q_is_full(3, q, 4));
-  
+
   /* Can't simply test for cunit fullness - Forced to hack. */
   packet p;
   p.x = 0;
@@ -440,31 +456,62 @@ static char *test_subt_rec_set_return_as() {
   return NULL;
 }
 
-static char *test_avSubtRecs_push() {
+static char *test_subt_is_full() {
+  subt *subt = subt_create();
+  mu_assert("FAIL: test_subt_is_full", !subt_is_full(subt));
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_avSubtRecs_pop() {
+static char *test_subt_is_empty() {
+  subt *subt = subt_create();
+  mu_assert("FAIL: test_subt_is_empty", subt_is_empty(subt));
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_avSubtRecs_is_empty() {
+static char *test_subt_top() {
+  subt *subt = subt_create();
+  mu_assert("FAIL: test_subt_top", subt_top(subt) == 0);
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_avSubtRecs_is_full() {
+static char *test_subt_set_top() {
+  subt *subt = subt_create();
+  subt_set_top(subt, 7);
+  mu_assert("FAIL: test_subt_set_top", subt_top(subt) == 7);
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_avSubtRecs_top() {
+static char *test_subt_push() {
+  subt *subt = subt_create();
+  mu_assert("FAIL: test_subt_push [1]", !subt_push(0, subt));
+  ushort i;
+  subt_pop(&i, subt);
+  mu_assert("FAIL: test_subt_push [2]", subt_push(0, subt));
+  mu_assert("FAIL: test_subt_push [3]", !subt_push(1, subt));
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_avSubtRecs_set_top() {
+static char *test_subt_pop() {
+  subt *subt = subt_create();
+  ushort i = 0;
+  mu_assert("FAIL: test_subt_pop [1]", subt_pop(&i, subt));
+  mu_assert("FAIL: test_subt_pop [2]", subt_pop(&i, subt));
+  mu_assert("FAIL: test_subt_pop [3]", i == 1);
+  subt_destroy(subt);
   return NULL;
 }
 
-static char *test_subt_add_rec() {
+static char *test_subt_new_rec() {
+  subt *subt = subt_create();
+  for (int i = 0; i < SUBT_SIZE; i++) {
+    mu_assert("FAIL: test_subt_new_rec", subt_new_rec(subt) != NULL);
+  }
+  subt_destroy(subt);
   return NULL;
 }
 
@@ -514,14 +561,14 @@ static char *all_tests() {
   mu_run_test(test_subt_rec_set_return_to);
   mu_run_test(test_subt_rec_set_return_as);
 
-  mu_run_test(test_avSubtRecs_push);
-  mu_run_test(test_avSubtRecs_pop);
-  mu_run_test(test_avSubtRecs_is_empty);
-  mu_run_test(test_avSubtRecs_is_full);
-  mu_run_test(test_avSubtRecs_top);
-  mu_run_test(test_avSubtRecs_set_top);
+  mu_run_test(test_subt_is_full);
+  mu_run_test(test_subt_is_empty);
+  mu_run_test(test_subt_top);
+  mu_run_test(test_subt_set_top);
+  mu_run_test(test_subt_push);
+  mu_run_test(test_subt_pop);
+  mu_run_test(test_subt_new_rec);
 
-  mu_run_test(test_subt_add_rec);
   return NULL;
 }
 

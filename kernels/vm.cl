@@ -55,7 +55,7 @@ bool subt_pop(ushort *result, subt *subt);
 bool subt_is_full(subt *subt);
 bool subt_is_empty(subt *subt);
 ushort subt_top(subt *subt);
-void subt_set_top(ushort i, subt *subt);
+void subt_set_top(subt *subt, ushort i);
 
 uint subt_rec_get_service_id(subt_rec r);
 uint subt_rec_get_arg(subt_rec r, uint arg_pos);
@@ -208,37 +208,34 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Subtask Table Functions ****/
 /*********************************/
 
-/* Insert a record into the subtask table.
- * Returns true if successful (table is not full), false otherwise. */
-bool subt_add_rec(subt_rec rec, subt *subt) {
-  ushort i;
-  if (!subt_pop(&i, subt)) {
-    return false;
+subt_rec *subt_new_rec(subt *subt) {
+  ushort av_index;
+  if (!subt_pop(&av_index, subt)) {
+    return NULL;
   }
-  
-  subt->recs[i] = rec;
-  return true;
+
+  return &subt->recs[av_index];
 }
 
 bool subt_push(ushort i, subt *subt) {
-  if (subt_is_full(subt)) {
-    return false;
-  }
-
-  ushort top = subt_top(subt);
-  subt->av_recs[top + 1] = i;
-  subt_set_top(top + 1, subt);
-  return true;
-}
-
-bool subt_pop(ushort *result, subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
   
   ushort top = subt_top(subt);
-  *result = subt->av_recs[top];
-  subt_set_top(top - 1, subt);
+  subt->av_recs[top - 1] = i;
+  subt_set_top(subt, top - 1);
+  return true;
+}
+
+bool subt_pop(ushort *result, subt *subt) {
+  if (subt_is_full(subt)) {
+    return false;
+  }
+  
+  ushort top = subt_top(subt);
+  *result = subt->av_recs[top + 1];
+  subt_set_top(subt, top + 1);
   return true;
 }
 
@@ -254,7 +251,7 @@ ushort subt_top(subt *subt) {
   return subt->av_recs[0];
 }
 
-void subt_set_top(ushort i, subt *subt) {
+void subt_set_top(subt *subt, ushort i) {
   subt->av_recs[0] = i;
 }
 
