@@ -101,20 +101,20 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /******* The Kernel *******/
 /**************************/
 __kernel void vm(__global packet *q,            /* Compute unit queues. */
-		 __global packet *rq,           /* Transfer queues for READ state. */
-		 int n,                         /* The number of compute units. */
-		 __global int *state,           /* Are we in the READ or WRITE state? */
-		 __global bytecode *cStore,     /* The code store. */
-		 __global subt *subt,           /* The subtask table. */
-		 __global char *in,             /* Input data from the host. */
-		 __global char *result,         /* Memory to store the final results. */
-		 __global char *scratch         /* Scratch memory for temporary results. */
-		 ) {
+                 __global packet *rq,           /* Transfer queues for READ state. */
+                 int n,                         /* The number of compute units. */
+                 __global int *state,           /* Are we in the READ or WRITE state? */
+                 __global bytecode *cStore,     /* The code store. */
+                 __global subt *subt,           /* The subtask table. */
+                 __global char *in,             /* Input data from the host. */
+                 __global char *result,         /* Memory to store the final results. */
+                 __global char *scratch         /* Scratch memory for temporary results. */
+                 ) {
   size_t gid = get_global_id(0);
-  
+
   if (*state == WRITE) {
     transferRQ(rq, q, n);
-    
+
     switch (gid) {
     case 0:
       break;
@@ -124,7 +124,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
       break;
     case 3:
       if (!cunit_q_is_empty(0, q, n)) {
-	*state = COMPLETE;
+        *state = COMPLETE;
       }
       break;
     }
@@ -132,23 +132,23 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
     switch (gid) {
     case 0:
       if (cunit_q_is_empty(1, q, n)) {
-	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-	q_write(p, 1, rq, n);
-	q_write(p, 2, rq, n);
-	q_write(p, 3, rq, n);
+        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
+        q_write(p, 1, rq, n);
+        q_write(p, 2, rq, n);
+        q_write(p, 3, rq, n);
       }
       break;
-      
+
     case 1:
       if (!cunit_q_is_empty(gid, q, n)) {
-	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-	q_write(p, 2, rq, n);
+        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
+        q_write(p, 2, rq, n);
       }
       break;
     case 2:
       if (cunit_q_size(gid, q, n) == 2) {
-	packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-	q_write(p, 0, rq, n);
+        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
+        q_write(p, 0, rq, n);
       }
       break;
     case 3:
@@ -208,20 +208,21 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Subtask Table Functions ****/
 /*********************************/
 
-subt_rec *subt_new_rec(subt *subt) {
+bool subt_get_rec(subt_rec *rec, subt *subt) {
   ushort av_index;
   if (!subt_pop(&av_index, subt)) {
-    return NULL;
+    return false;
   }
 
-  return &subt->recs[av_index];
+  rec = &subt->recs[av_index];
+  return true;
 }
 
 bool subt_push(ushort i, subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -232,7 +233,7 @@ bool subt_pop(ushort *result, subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   *result = subt->av_recs[top + 1];
   subt_set_top(subt, top + 1);
@@ -240,7 +241,7 @@ bool subt_pop(ushort *result, subt *subt) {
 }
 
 bool subt_is_full(subt *subt) {
-  return subt_top(subt) == SUBT_SIZE; 
+  return subt_top(subt) == SUBT_SIZE;
 }
 
 bool subt_is_empty(subt *subt) {
@@ -299,12 +300,12 @@ void subt_rec_set_arg_mode(subt_rec *r, uint arg_pos, uint mode) {
 }
 
 void subt_rec_set_subt_status(subt_rec *r, uint status) {
-  r->subt_status = (r->subt_status & ~SUBTREC_STATUS_MASK) 
+  r->subt_status = (r->subt_status & ~SUBTREC_STATUS_MASK)
     | ((status << SUBTREC_STATUS_SHIFT) & SUBTREC_STATUS_MASK);
 }
 
 void subt_rec_set_nargs_absent(subt_rec *r, uint n) {
-  r->subt_status = (r->subt_status & ~NARGS_ABSENT_MASK) 
+  r->subt_status = (r->subt_status & ~NARGS_ABSENT_MASK)
     | ((n << NARGS_ABSENT_SHIFT) & NARGS_ABSENT_MASK);
 }
 
@@ -447,9 +448,9 @@ uint q_size(size_t id, size_t gid, __global uint2 *q, int n) {
   uint tail = q_get_tail_index(id, gid, q, n);
   return (tail > head) ? (tail - head) : QUEUE_SIZE - head;
 }
- 
+
 /* Read the value located at the head index of the queue into 'result'.
- * Returns true if succcessful (queue is not empty), false otherwise. */ 
+ * Returns true if succcessful (queue is not empty), false otherwise. */
 bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   size_t gid = get_global_id(0);
   if (q_is_empty(id, gid, q, n)) {
@@ -477,5 +478,3 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   q_set_last_op(WRITE, id, gid, q, n);
   return true;
 }
-
-

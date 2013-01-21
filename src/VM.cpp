@@ -120,7 +120,7 @@ int main() {
 
     cl::Buffer resultBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(resultBuffer, CL_TRUE, 0, sizeof(cl_char), result);
-
+    
     cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, sizeof(cl_char), scratch);
     

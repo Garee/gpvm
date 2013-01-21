@@ -506,10 +506,11 @@ static char *test_subt_pop() {
   return NULL;
 }
 
-static char *test_subt_new_rec() {
+static char *test_subt_get_rec() {
   subt *subt = subt_create();
+  subt_rec *rec;
   for (int i = 0; i < SUBT_SIZE; i++) {
-    mu_assert("FAIL: test_subt_new_rec", subt_new_rec(subt) != NULL);
+    mu_assert("FAIL: test_subt_get_rec", subt_get_rec(rec, subt));
   }
   subt_destroy(subt);
   return NULL;
@@ -567,7 +568,7 @@ static char *all_tests() {
   mu_run_test(test_subt_set_top);
   mu_run_test(test_subt_push);
   mu_run_test(test_subt_pop);
-  mu_run_test(test_subt_new_rec);
+  mu_run_test(test_subt_get_rec);
 
   return NULL;
 }
