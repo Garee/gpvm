@@ -40,7 +40,7 @@ void subt_rec_destroy(subt_rec *rec) {
 subt *subt_create() {
   subt *subt = malloc(sizeof(subt));
   if (subt) {
-    subt->av_recs[0] = 0;
+    subt->av_recs[0] = 1;
     for (int i = 0; i < SUBT_SIZE; i++) {
       subt->av_recs[i + 1] = i;
     }
@@ -472,7 +472,7 @@ static char *test_subt_is_empty() {
 
 static char *test_subt_top() {
   subt *subt = subt_create();
-  mu_assert("FAIL: test_subt_top", subt_top(subt) == 0);
+  mu_assert("FAIL: test_subt_top", subt_top(subt) == 1);
   subt_destroy(subt);
   return NULL;
 }
@@ -541,7 +541,7 @@ static char *all_tests() {
   mu_run_test(test_q_size);
   mu_run_test(test_q_read);
   mu_run_test(test_q_write);
-
+  
   mu_run_test(test_cunit_q_is_empty);
   mu_run_test(test_cunit_q_is_full);
   mu_run_test(test_cunit_q_size);

@@ -235,17 +235,17 @@ bool subt_pop(ushort *result, subt *subt) {
   }
 
   ushort top = subt_top(subt);
-  *result = subt->av_recs[top + 1];
+  *result = subt->av_recs[top];
   subt_set_top(subt, top + 1);
   return true;
 }
 
 bool subt_is_full(subt *subt) {
-  return subt_top(subt) == SUBT_SIZE;
+  return subt_top(subt) == SUBT_SIZE + 1;
 }
 
 bool subt_is_empty(subt *subt) {
-  return subt_top(subt) == 0;
+  return subt_top(subt) == 1;
 }
 
 ushort subt_top(subt *subt) {

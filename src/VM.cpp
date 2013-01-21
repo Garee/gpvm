@@ -86,7 +86,7 @@ int main() {
 
     /* The code store. */
     bytecode *cStore = new bytecode[CSTORE_SIZE];
-
+    
     /* The subtask table. */
     subt *subt = createSubt();
     
@@ -108,7 +108,7 @@ int main() {
 
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-
+    
     cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * sizeof(bytecode), cStore);
 
@@ -197,6 +197,6 @@ subt *createSubt() {
   for (int i = 1; i < SUBT_SIZE + 1; i++) {
     table->av_recs[i] = i - 1;
   }
-
+  
   return table;
 }
