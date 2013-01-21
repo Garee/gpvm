@@ -49,7 +49,7 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
-bool subt_add_rec(subt_rec rec, subt *subt);
+subt_rec *subt_get_rec(ushort i, subt *subt);
 bool subt_push(ushort i, subt *subt);
 bool subt_pop(ushort *result, subt *subt);
 bool subt_is_full(subt *subt);
@@ -111,49 +111,12 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-
+  
   if (*state == WRITE) {
     transferRQ(rq, q, n);
 
-    switch (gid) {
-    case 0:
-      break;
-    case 1:
-      break;
-    case 2:
-      break;
-    case 3:
-      if (!cunit_q_is_empty(0, q, n)) {
-        *state = COMPLETE;
-      }
-      break;
-    }
   } else {
-    switch (gid) {
-    case 0:
-      if (cunit_q_is_empty(1, q, n)) {
-        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-        q_write(p, 1, rq, n);
-        q_write(p, 2, rq, n);
-        q_write(p, 3, rq, n);
-      }
-      break;
-
-    case 1:
-      if (!cunit_q_is_empty(gid, q, n)) {
-        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-        q_write(p, 2, rq, n);
-      }
-      break;
-    case 2:
-      if (cunit_q_size(gid, q, n) == 2) {
-        packet p = pkt_create(REFERENCE, 0, 1, 0, 0);
-        q_write(p, 0, rq, n);
-      }
-      break;
-    case 3:
-      break;
-    }
+    *state = COMPLETE;
   }
 }
 
@@ -208,14 +171,8 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Subtask Table Functions ****/
 /*********************************/
 
-bool subt_get_rec(subt_rec *rec, subt *subt) {
-  ushort av_index;
-  if (!subt_pop(&av_index, subt)) {
-    return false;
-  }
-
-  rec = &subt->recs[av_index];
-  return true;
+subt_rec *subt_get_rec(ushort i, subt *subt) {
+  return &subt->recs[i];
 }
 
 bool subt_push(ushort i, subt *subt) {
@@ -229,13 +186,13 @@ bool subt_push(ushort i, subt *subt) {
   return true;
 }
 
-bool subt_pop(ushort *result, subt *subt) {
+bool subt_pop(ushort *av_index, subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
 
   ushort top = subt_top(subt);
-  *result = subt->av_recs[top];
+  *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
   return true;
 }

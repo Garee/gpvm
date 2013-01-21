@@ -508,9 +508,8 @@ static char *test_subt_pop() {
 
 static char *test_subt_get_rec() {
   subt *subt = subt_create();
-  subt_rec *rec;
   for (int i = 0; i < SUBT_SIZE; i++) {
-    mu_assert("FAIL: test_subt_get_rec", subt_get_rec(rec, subt));
+    mu_assert("FAIL: test_subt_get_rec", subt_get_rec(i, subt) != NULL);
   }
   subt_destroy(subt);
   return NULL;
