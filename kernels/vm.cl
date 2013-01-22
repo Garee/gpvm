@@ -41,13 +41,14 @@
 /******* Function Prototypes *******/
 /***********************************/
 void parse_pkt(packet p, __global subt *table);
-void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt);
 
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
+void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt);
+bool subt_is_ready(ushort i, __global subt *subt);
 __global subt_rec *subt_get_rec(ushort i, __global subt *subt);
 bool subt_push(ushort i, __global subt *subt);
 bool subt_pop(ushort *result, __global subt *subt);
@@ -110,7 +111,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-
+  
   if (*state == WRITE) {
     transferRQ(rq, q, n);
   } else {
@@ -120,7 +121,6 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
         parse_pkt(p, subt);
       }
     }
-    *state = COMPLETE;
   }
 }
 
@@ -138,18 +138,12 @@ void parse_pkt(packet p, __global subt *subt) {
   case REQUEST:
     break;
   case DATA: // Store packet payload in associated subtask record.
-    subt_store_payload(payload, arg_pos, subtask, subt);    
+    subt_store_payload(payload, arg_pos, subtask, subt);
+    if (subt_is_ready(subtask, subt)) {
+      // Perform computation
+    }
     break;
   }
-}
-
-
-void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt) {
-  __global subt_rec *rec = subt_get_rec(i, subt);
-  uint nargs_absent = subt_rec_get_nargs_absent(rec);
-  subt_rec_set_arg(rec, arg_pos, payload);
-  subt_rec_set_arg_status(rec, arg_pos, PRESENT);
-  subt_rec_set_nargs_absent(rec, nargs_absent - 1);
 }
 
 /**************************************/
@@ -202,6 +196,19 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Subtask Table Functions ****/
 /*********************************/
 
+void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt) {
+  __global subt_rec *rec = subt_get_rec(i, subt);
+  uint nargs_absent = subt_rec_get_nargs_absent(rec) - 1;
+  subt_rec_set_arg(rec, arg_pos, payload);
+  subt_rec_set_arg_status(rec, arg_pos, PRESENT);
+  subt_rec_set_nargs_absent(rec, nargs_absent);
+}
+
+bool subt_is_ready(ushort i, __global subt *subt) {
+  __global subt_rec *rec = subt_get_rec(i, subt);
+  return subt_rec_get_nargs_absent(rec) == 0;
+}
+
 __global subt_rec *subt_get_rec(ushort i, __global subt *subt) {
   return &(subt->recs[i]);
 }
@@ -210,7 +217,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -283,7 +290,7 @@ void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg) {
   r->args[arg_pos] = arg;
 }
 
-void subt_rec_get_set_status(__global subt_rec *r, uint arg_pos, uint status) {
+void subt_rec_set_arg_status(__global subt_rec *r, uint arg_pos, uint status) {
   r->arg_status[arg_pos] = status;
 }
 

@@ -28,7 +28,7 @@ typedef struct subt_rec {
   uchar arg_status[QUEUE_SIZE]; // [8bits] Arg status
   uchar subt_status;            // [4bits] Subtask status, [4bits] number of args absent.
   uchar return_to;              // [8bits] Subtask record to return to.
-  ushort return_as;             // [16bits] Subtask address + argument position.
+  ushort return_as;             // [8bits] Subtask address + [8bits] argument position.
 } subt_rec; 
 
 /* The subtask table with associated available record stack. */
