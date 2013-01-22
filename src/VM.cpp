@@ -38,7 +38,7 @@ int main() {
 
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
-
+    
     /* Use the first available device. */
     device = devices[0];
     
@@ -83,7 +83,7 @@ int main() {
     /* Which stage of the READ/WRITE cycle are we in? */
     int *state = new int;
     *state = WRITE;
-
+    
     /* The code store. */
     bytecode *cStore = new bytecode[CSTORE_SIZE];
     
@@ -98,7 +98,7 @@ int main() {
 
     /* Scratch array for storing temporary results. */
     cl_char *scratch = new cl_char[SCRATCH_SIZE];
-
+    
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
@@ -123,7 +123,7 @@ int main() {
     
     cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, sizeof(cl_char), scratch);
-    
+
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
     kernel.setArg(1, rqBuffer);
@@ -156,7 +156,7 @@ int main() {
     }
     std::cout << std::endl;
     std::cout << std::endl;
-
+    
     /* Print the queues. */
     for (int i = nQueues; i < qBufSize; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;

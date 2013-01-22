@@ -106,10 +106,9 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-  
+
   if (*state == WRITE) {
     transferRQ(rq, q, n);
-
   } else {
     *state = COMPLETE;
   }
@@ -397,14 +396,14 @@ uint q_size(size_t id, size_t gid, __global uint2 *q, int n) {
  * Returns true if succcessful (queue is not empty), false otherwise. */
 bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   size_t gid = get_global_id(0);
-  if (q_is_empty(id, gid, q, n)) {
+  if (q_is_empty(gid, id, q, n)) {
     return false;
   }
-
-  int index = q_get_head_index(id, gid, q, n);
-  *result = q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index];
-  q_set_head_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
-  q_set_last_op(READ, id, gid, q, n);
+  
+  int index = q_get_head_index(gid, id, q, n);
+  *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
+  q_set_head_index((index + 1) % QUEUE_SIZE, gid, id, q, n);
+  q_set_last_op(READ, gid, id, q, n);
   return true;
 }
 
@@ -415,7 +414,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   if (q_is_full(id, gid, q, n)) {
     return false;
   }
-
+  
   int index = q_get_tail_index(id, gid, q, n);
   q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index] = value;
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
