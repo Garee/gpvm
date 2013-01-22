@@ -37,10 +37,6 @@
 #define REQUESTING 1
 #define PRESENT    2
 
-/* Arg mode. */
-#define BY_VAL 0
-#define BY_REF 1
-
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
@@ -66,7 +62,6 @@ uint subt_rec_get_return_to(subt_rec r);
 uint subt_rec_get_return_as(subt_rec r);
 void subt_rec_set_service_id(subt_rec *r, uint service_id);
 void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg);
-void subt_rec_set_arg_mode(subt_rec *r, uint arg_pos, uint mode);
 void subt_rec_set_subt_status(subt_rec *r, uint status);
 void subt_rec_set_nargs_absent(subt_rec *r, uint n);
 void subt_rec_set_return_to(subt_rec *r, uint return_to);
@@ -224,10 +219,6 @@ uint subt_rec_get_arg(subt_rec r, uint arg_pos) {
   return r.args[arg_pos];
 }
 
-uint subt_rec_get_arg_mode(subt_rec r, uint arg_pos) {
-  return r.arg_mode[arg_pos];
-}
-
 uint subt_rec_get_subt_status(subt_rec r) {
   return (r.subt_status & SUBTREC_STATUS_MASK) >> SUBTREC_STATUS_SHIFT;
 }
@@ -250,10 +241,6 @@ void subt_rec_set_service_id(subt_rec *r, uint service_id) {
 
 void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg) {
   r->args[arg_pos] = arg;
-}
-
-void subt_rec_set_arg_mode(subt_rec *r, uint arg_pos, uint mode) {
-  r->arg_mode[arg_pos] = mode;
 }
 
 void subt_rec_set_subt_status(subt_rec *r, uint status) {

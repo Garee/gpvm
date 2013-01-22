@@ -365,13 +365,6 @@ static char *test_subt_rec_get_arg() {
   return NULL;
 }
 
-static char *test_subt_rec_get_arg_mode() {
-  subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_arg_mode", subt_rec_get_arg_mode(*rec, 2) == 0);
-  subt_rec_destroy(rec);
-  return NULL;
-}
-
 static char *test_subt_rec_get_subt_status() {
   subt_rec *rec = subt_rec_create(1);
   mu_assert("FAIL: test_subt_rec_get_subt_status", subt_rec_get_subt_status(*rec) == 0);
@@ -412,14 +405,6 @@ static char *test_subt_rec_set_arg() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_arg(rec, 0, 50);
   mu_assert("FAIL: test_subt_rec_set_arg", subt_rec_get_arg(*rec, 0) == 50);
-  subt_rec_destroy(rec);
-  return NULL;
-}
-
-static char *test_subt_rec_set_arg_mode() {
-  subt_rec *rec = subt_rec_create(1);
-  subt_rec_set_arg_mode(rec, 0, BY_REF);
-  mu_assert("FAIL: test_subt_rec_set_arg_mode", subt_rec_get_arg_mode(*rec, 0) == BY_REF);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -548,14 +533,12 @@ static char *all_tests() {
 
   mu_run_test(test_subt_rec_get_service_id);
   mu_run_test(test_subt_rec_get_arg);
-  mu_run_test(test_subt_rec_get_arg_mode);
   mu_run_test(test_subt_rec_get_subt_status);
   mu_run_test(test_subt_rec_get_nargs_absent);
   mu_run_test(test_subt_rec_get_return_to);
   mu_run_test(test_subt_rec_get_return_as);
   mu_run_test(test_subt_rec_set_service_id);
   mu_run_test(test_subt_rec_set_arg);
-  mu_run_test(test_subt_rec_set_arg_mode);
   mu_run_test(test_subt_rec_set_subt_status);
   mu_run_test(test_subt_rec_set_nargs_absent);
   mu_run_test(test_subt_rec_set_return_to);
