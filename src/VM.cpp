@@ -117,7 +117,7 @@ int main() {
 
     cl::Buffer inBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(inBuffer, CL_TRUE, 0, sizeof(cl_char), in);
-
+    
     cl::Buffer resultBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(resultBuffer, CL_TRUE, 0, sizeof(cl_char), result);
     
@@ -147,7 +147,7 @@ int main() {
 
     /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
-
+    
     /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {
       int x = ((queues[i].x & 0xFFFF0000) >> 16);

@@ -353,42 +353,42 @@ static char *test_transferRQ() {
 
 static char *test_subt_rec_get_service_id() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_service_id", subt_rec_get_service_id(*rec) == 1);
+  mu_assert("FAIL: test_subt_rec_get_service_id", subt_rec_get_service_id(rec) == 1);
   subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_arg() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_arg", subt_rec_get_arg(*rec, 0) == 0);
+  mu_assert("FAIL: test_subt_rec_get_arg", subt_rec_get_arg(rec, 0) == 0);
   subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_subt_status() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_subt_status", subt_rec_get_subt_status(*rec) == 0);
+  mu_assert("FAIL: test_subt_rec_get_subt_status", subt_rec_get_subt_status(rec) == 0);
   subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_nargs_absent() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_nargs_absent", subt_rec_get_nargs_absent(*rec) == 0);
+  mu_assert("FAIL: test_subt_rec_get_nargs_absent", subt_rec_get_nargs_absent(rec) == 0);
   subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_return_to() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_return_to", subt_rec_get_return_to(*rec) == 0);
+  mu_assert("FAIL: test_subt_rec_get_return_to", subt_rec_get_return_to(rec) == 0);
   subt_rec_destroy(rec);
   return NULL;
 }
 
 static char *test_subt_rec_get_return_as() {
   subt_rec *rec = subt_rec_create(1);
-  mu_assert("FAIL: test_subt_rec_get_return_as", subt_rec_get_return_as(*rec) == 0);
+  mu_assert("FAIL: test_subt_rec_get_return_as", subt_rec_get_return_as(rec) == 0);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -396,7 +396,7 @@ static char *test_subt_rec_get_return_as() {
 static char *test_subt_rec_set_service_id() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_service_id(rec, 2);
-  mu_assert("FAIL: test_subt_rec_set_service_id", subt_rec_get_service_id(*rec) == 2);
+  mu_assert("FAIL: test_subt_rec_set_service_id", subt_rec_get_service_id(rec) == 2);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -404,7 +404,7 @@ static char *test_subt_rec_set_service_id() {
 static char *test_subt_rec_set_arg() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_arg(rec, 0, 50);
-  mu_assert("FAIL: test_subt_rec_set_arg", subt_rec_get_arg(*rec, 0) == 50);
+  mu_assert("FAIL: test_subt_rec_set_arg", subt_rec_get_arg(rec, 0) == 50);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -412,7 +412,7 @@ static char *test_subt_rec_set_arg() {
 static char *test_subt_rec_set_subt_status() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_subt_status(rec, PROCESSING);
-  mu_assert("FAIL: test_subt_rec_set_subt_status", subt_rec_get_subt_status(*rec) == PROCESSING);
+  mu_assert("FAIL: test_subt_rec_set_subt_status", subt_rec_get_subt_status(rec) == PROCESSING);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -420,7 +420,7 @@ static char *test_subt_rec_set_subt_status() {
 static char *test_subt_rec_set_nargs_absent() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_nargs_absent(rec, 4);
-  mu_assert("FAIL: test_subt_rec_set_nargs_absent", subt_rec_get_nargs_absent(*rec) == 4);
+  mu_assert("FAIL: test_subt_rec_set_nargs_absent", subt_rec_get_nargs_absent(rec) == 4);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -428,7 +428,7 @@ static char *test_subt_rec_set_nargs_absent() {
 static char *test_subt_rec_set_return_to() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_return_to(rec, 100);
-  mu_assert("FAIL: test_subt_rec_set_return_to", subt_rec_get_return_to(*rec) == 100);
+  mu_assert("FAIL: test_subt_rec_set_return_to", subt_rec_get_return_to(rec) == 100);
   subt_rec_destroy(rec);
   return NULL;
 }
@@ -436,7 +436,7 @@ static char *test_subt_rec_set_return_to() {
 static char *test_subt_rec_set_return_as() {
   subt_rec *rec = subt_rec_create(1);
   subt_rec_set_return_as(rec, 255);
-  mu_assert("FAIL: test_subt_rec_set_return_as", subt_rec_get_return_as(*rec) == 255);
+  mu_assert("FAIL: test_subt_rec_set_return_as", subt_rec_get_return_as(rec) == 255);
   subt_rec_destroy(rec);
   return NULL;
 }

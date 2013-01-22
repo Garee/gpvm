@@ -40,32 +40,36 @@
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
+void parse_pkt(packet p, __global subt *table);
+void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt);
+
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
 uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
-subt_rec *subt_get_rec(ushort i, subt *subt);
-bool subt_push(ushort i, subt *subt);
-bool subt_pop(ushort *result, subt *subt);
-bool subt_is_full(subt *subt);
-bool subt_is_empty(subt *subt);
-ushort subt_top(subt *subt);
-void subt_set_top(subt *subt, ushort i);
+__global subt_rec *subt_get_rec(ushort i, __global subt *subt);
+bool subt_push(ushort i, __global subt *subt);
+bool subt_pop(ushort *result, __global subt *subt);
+bool subt_is_full(__global subt *subt);
+bool subt_is_empty(__global subt *subt);
+ushort subt_top(__global subt *subt);
+void subt_set_top(__global subt *subt, ushort i);
 
-uint subt_rec_get_service_id(subt_rec r);
-uint subt_rec_get_arg(subt_rec r, uint arg_pos);
-uint subt_rec_get_arg_mode(subt_rec r, uint arg_pos);
-uint subt_rec_get_subt_status(subt_rec r);
-uint subt_rec_get_nargs_absent(subt_rec r);
-uint subt_rec_get_return_to(subt_rec r);
-uint subt_rec_get_return_as(subt_rec r);
-void subt_rec_set_service_id(subt_rec *r, uint service_id);
-void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg);
-void subt_rec_set_subt_status(subt_rec *r, uint status);
-void subt_rec_set_nargs_absent(subt_rec *r, uint n);
-void subt_rec_set_return_to(subt_rec *r, uint return_to);
-void subt_rec_set_return_as(subt_rec *r, uint return_as);
+uint subt_rec_get_service_id(__global subt_rec *r);
+uint subt_rec_get_arg(__global subt_rec *r, uint arg_pos);
+uint subt_rec_get_arg_status(__global subt_rec *r, uint arg_pos);
+uint subt_rec_get_subt_status(__global subt_rec *r);
+uint subt_rec_get_nargs_absent(__global subt_rec *r);
+uint subt_rec_get_return_to(__global subt_rec *r);
+uint subt_rec_get_return_as(__global subt_rec *r);
+void subt_rec_set_service_id(__global subt_rec *r, uint service_id);
+void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg);
+void subt_rec_set_arg_status(__global subt_rec *r, uint arg_pos, uint status);
+void subt_rec_set_subt_status(__global subt_rec *r, uint status);
+void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
+void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
+void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
 
 uint pkt_get_type(packet p);
 uint pkt_get_dest(packet p);
@@ -110,10 +114,43 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
   if (*state == WRITE) {
     transferRQ(rq, q, n);
   } else {
+    for (int i = 0; i < n; i++) {
+      packet p;
+      while (q_read(&p, i, q, n)) {
+        parse_pkt(p, subt);
+      }
+    }
     *state = COMPLETE;
   }
 }
 
+void parse_pkt(packet p, __global subt *subt) {
+  uint type = pkt_get_type(p);
+  uint subtask = pkt_get_sub(p);
+  uint arg_pos = pkt_get_arg_pos(p);
+  uint payload = pkt_get_payload(p);
+  
+  switch (type) {
+  case ERROR:
+    break;
+  case REFERENCE: // Create new subtask record.
+    break;
+  case REQUEST:
+    break;
+  case DATA: // Store packet payload in associated subtask record.
+    subt_store_payload(payload, arg_pos, subtask, subt);    
+    break;
+  }
+}
+
+
+void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt) {
+  __global subt_rec *rec = subt_get_rec(i, subt);
+  uint nargs_absent = subt_rec_get_nargs_absent(rec);
+  subt_rec_set_arg(rec, arg_pos, payload);
+  subt_rec_set_arg_status(rec, arg_pos, PRESENT);
+  subt_rec_set_nargs_absent(rec, nargs_absent - 1);
+}
 
 /**************************************/
 /**** Compute Unit Queue Functions ****/
@@ -165,11 +202,11 @@ void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
 /**** Subtask Table Functions ****/
 /*********************************/
 
-subt_rec *subt_get_rec(ushort i, subt *subt) {
-  return &subt->recs[i];
+__global subt_rec *subt_get_rec(ushort i, __global subt *subt) {
+  return &(subt->recs[i]);
 }
 
-bool subt_push(ushort i, subt *subt) {
+bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
@@ -180,7 +217,7 @@ bool subt_push(ushort i, subt *subt) {
   return true;
 }
 
-bool subt_pop(ushort *av_index, subt *subt) {
+bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
@@ -191,72 +228,80 @@ bool subt_pop(ushort *av_index, subt *subt) {
   return true;
 }
 
-bool subt_is_full(subt *subt) {
+bool subt_is_full(__global subt *subt) {
   return subt_top(subt) == SUBT_SIZE + 1;
 }
 
-bool subt_is_empty(subt *subt) {
+bool subt_is_empty(__global subt *subt) {
   return subt_top(subt) == 1;
 }
 
-ushort subt_top(subt *subt) {
+ushort subt_top(__global subt *subt) {
   return subt->av_recs[0];
 }
 
-void subt_set_top(subt *subt, ushort i) {
+void subt_set_top(__global subt *subt, ushort i) {
   subt->av_recs[0] = i;
 }
 
 /**********************************/
 /**** Subtask Record Functions ****/
 /**********************************/
-uint subt_rec_get_service_id(subt_rec r) {
-  return r.service_id;
+uint subt_rec_get_service_id(__global subt_rec *r) {
+  return r->service_id;
 }
 
-uint subt_rec_get_arg(subt_rec r, uint arg_pos) {
-  return r.args[arg_pos];
+uint subt_rec_get_arg(__global subt_rec *r, uint arg_pos) {
+  return r->args[arg_pos];
 }
 
-uint subt_rec_get_subt_status(subt_rec r) {
-  return (r.subt_status & SUBTREC_STATUS_MASK) >> SUBTREC_STATUS_SHIFT;
+uint subt_rec_get_arg_status(__global subt_rec *r, uint arg_pos) {
+  return r->arg_status[arg_pos];
 }
 
-uint subt_rec_get_nargs_absent(subt_rec r) {
-  return (r.subt_status & NARGS_ABSENT_MASK);
+uint subt_rec_get_subt_status(__global subt_rec *r) {
+  return (r->subt_status & SUBTREC_STATUS_MASK) >> SUBTREC_STATUS_SHIFT;
 }
 
-uint subt_rec_get_return_to(subt_rec r) {
-  return r.return_to;
+uint subt_rec_get_nargs_absent(__global subt_rec *r) {
+  return (r->subt_status & NARGS_ABSENT_MASK);
 }
 
-uint subt_rec_get_return_as(subt_rec r) {
-  return r.return_as;
+uint subt_rec_get_return_to(__global subt_rec *r) {
+  return r->return_to;
 }
 
-void subt_rec_set_service_id(subt_rec *r, uint service_id) {
+uint subt_rec_get_return_as(__global subt_rec *r) {
+  return r->return_as;
+}
+
+void subt_rec_set_service_id(__global subt_rec *r, uint service_id) {
   r->service_id = service_id;
 }
 
-void subt_rec_set_arg(subt_rec *r, uint arg_pos, uint arg) {
+void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg) {
   r->args[arg_pos] = arg;
 }
 
-void subt_rec_set_subt_status(subt_rec *r, uint status) {
+void subt_rec_get_set_status(__global subt_rec *r, uint arg_pos, uint status) {
+  r->arg_status[arg_pos] = status;
+}
+
+void subt_rec_set_subt_status(__global subt_rec *r, uint status) {
   r->subt_status = (r->subt_status & ~SUBTREC_STATUS_MASK)
     | ((status << SUBTREC_STATUS_SHIFT) & SUBTREC_STATUS_MASK);
 }
 
-void subt_rec_set_nargs_absent(subt_rec *r, uint n) {
+void subt_rec_set_nargs_absent(__global subt_rec *r, uint n) {
   r->subt_status = (r->subt_status & ~NARGS_ABSENT_MASK)
     | ((n << NARGS_ABSENT_SHIFT) & NARGS_ABSENT_MASK);
 }
 
-void subt_rec_set_return_to(subt_rec *r, uint return_to) {
+void subt_rec_set_return_to(__global subt_rec *r, uint return_to) {
   r->return_to = return_to;
 }
 
-void subt_rec_set_return_as(subt_rec *r, uint return_as) {
+void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
   r->return_as = return_as;
 }
 
@@ -399,7 +444,7 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   if (q_is_empty(gid, id, q, n)) {
     return false;
   }
-  
+
   int index = q_get_head_index(gid, id, q, n);
   *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
   q_set_head_index((index + 1) % QUEUE_SIZE, gid, id, q, n);
@@ -414,7 +459,7 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   if (q_is_full(id, gid, q, n)) {
     return false;
   }
-  
+
   int index = q_get_tail_index(id, gid, q, n);
   q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index] = value;
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
