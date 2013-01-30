@@ -15,6 +15,19 @@
 #define PKT_ARG_MASK   0x3C00   // 00000000000000000011110000000000
 #define PKT_SUB_MASK   0xFFC000 // 00000000111111111100000000000000
 
+/* Used to access symbol information. */
+#define SYMBOL_KIND_SHIFT 63
+#define SYMBOL_QUOTED_SHIFT 54
+#define SYMBOL_KIND_MASK 0xF000000000000000
+#define SYMBOL_QUOTED_MASK 0x00
+#define SYMBOL_OPCODE_MASK 0xFFFFFFFF
+#define SYMBOL_NAME_MASK 0xFFFFFFFF
+
+/* Definition of symbol kinds. */
+#define K_S 1
+#define K_R 4
+#define K_B 6
+
 /* Used to access the information stored within a subtask record. */
 #define NARGS_ABSENT_SHIFT   0
 #define SUBTREC_STATUS_SHIFT 4
@@ -24,8 +37,7 @@
 /* Packet Types. */
 #define ERROR     0
 #define REFERENCE 1
-#define REQUEST   2
-#define DATA      3
+#define DATA      2
 
 /* Subtask record status. */
 #define NEW        0
@@ -40,7 +52,7 @@
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
-void parse_pkt(packet p, __global subt *table);
+void parse_pkt(packet p, __global uint2 *q, __global subt *table);
 
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
@@ -101,41 +113,69 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
 /******* The Kernel *******/
 /**************************/
 __kernel void vm(__global packet *q,            /* Compute unit queues. */
-                 __global packet *rq,           /* Transfer queues for READ state. */
-                 int n,                         /* The number of compute units. */
-                 __global int *state,           /* Are we in the READ or WRITE state? */
-                 __global bytecode *cStore,     /* The code store. */
-                 __global subt *subt,           /* The subtask table. */
-                 __global char *in,             /* Input data from the host. */
-                 __global char *result,         /* Memory to store the final results. */
-                 __global char *scratch         /* Scratch memory for temporary results. */
+                   __global packet *rq,           /* Transfer queues for READ state. */
+                   int n,                         /* The number of compute units. */
+                   __global int *state,           /* Are we in the READ or WRITE state? */
+                   __global bytecode *cStore,     /* The code store. */
+                   __global subt *subt,           /* The subtask table. */
+                   __global char *in,             /* Input data from the host. */
+                   __global char *result,         /* Memory to store the final results. */
+                   __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-  
+
   if (*state == WRITE) {
     transferRQ(rq, q, n);
   } else {
     for (int i = 0; i < n; i++) {
       packet p;
       while (q_read(&p, i, q, n)) {
-        parse_pkt(p, subt);
+        parse_pkt(p, rq, subt);
       }
     }
   }
 }
 
-void parse_pkt(packet p, __global subt *subt) {
+uint symbol_get_kind(ulong s) {
+  return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
+}
+
+bool symbol_is_quoted(ulong s) {
+  return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
+}
+
+uint symbol_get_opcode(ulong s) {
+  return s & SYMBOL_OPCODE_MASK;
+}
+
+uint symbol_get_name(ulong s) {
+  return s & SYMBOL_NAME_MASK;
+}
+
+void parse_pkt(packet p, __global uint2 *q, __global subt *subt) {
   uint type = pkt_get_type(p);
   uint subtask = pkt_get_sub(p);
   uint arg_pos = pkt_get_arg_pos(p);
   uint payload = pkt_get_payload(p);
-  
+
   switch (type) {
   case ERROR:
     break;
   case REFERENCE: // Create new subtask record.
-    break;
-  case REQUEST:
+    switch (symbol_get_kind(payload)) {
+    case K_S:
+      break;
+    case K_R:
+      if (!symbol_is_quoted(payload)) {
+	uint dest = symbol_get_name(payload);
+        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, payload);
+      } else {
+
+      }
+      break;
+    case K_B:
+      break;
+    }
     break;
   case DATA: // Store packet payload in associated subtask record.
     subt_store_payload(payload, arg_pos, subtask, subt);
@@ -145,6 +185,8 @@ void parse_pkt(packet p, __global subt *subt) {
     break;
   }
 }
+
+
 
 /**************************************/
 /**** Compute Unit Queue Functions ****/
@@ -217,7 +259,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
