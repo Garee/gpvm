@@ -1,0 +1,23 @@
+\begin{thebibliography}{1}
+
+\bibitem{DIMACS}
+{DIMACS clique benchmark instances}.
+\newblock ftp://dimacs.rutgers.edu/pub/challenge/graph/benchmarks/clique.
+
+\bibitem{ckt}
+Peter Cheeseman, Bob Kanefsky, and William~M. Taylor.
+\newblock {Where the really hard problems are}.
+\newblock In {\em Proceedings {IJCAI'91}}, pages 331--337, 1991.
+
+\bibitem{fahle}
+Torsten Fahle.
+\newblock {Simple and Fast: Improving a Branch-and-Bound Algorithm for Maximum
+  Clique}.
+\newblock In {\em Proceedings {ESA 2002}, LNCS 2461}, pages 485--498, 2002.
+
+\bibitem{am97}
+Brian Hayes.
+\newblock Can't get no satisfaction.
+\newblock {\em American Scientist}, 85:108--112, 1997.
+
+\end{thebibliography}
