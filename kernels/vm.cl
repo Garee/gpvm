@@ -123,7 +123,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                    __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-
+  
   if (*state == WRITE) {
     transferRQ(rq, q, n);
   } else {
@@ -156,29 +156,36 @@ void parse_pkt(packet p, __global uint2 *q, __global subt *subt) {
   uint type = pkt_get_type(p);
   uint subtask = pkt_get_sub(p);
   uint arg_pos = pkt_get_arg_pos(p);
-  uint payload = pkt_get_payload(p);
+  uint symbol = pkt_get_payload(p);
 
   switch (type) {
   case ERROR:
     break;
-  case REFERENCE: // Create new subtask record.
-    switch (symbol_get_kind(payload)) {
-    case K_S:
+    
+  case REFERENCE:
+    switch (symbol_get_kind(symbol)) {
+    case K_S: // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|1Bit|Reg|2Bits|NArgs      :SCId|Opcode
       break;
-    case K_R:
-      if (!symbol_is_quoted(payload)) {
-	uint dest = symbol_get_name(payload);
-        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, payload);
+      
+    case K_R: // K_R:(Datatype):(Ext):Quoted           :CodePage:6Bits|5Bits|CodeAddress :Name
+      if (!symbol_is_quoted(symbol)) {
+        // subtask_argpos=setSubtask(subtask_argpos,parent_subtask);
+        // subtask_argpos=setArgPos(subtask_argpos,argidx);
+	
+        uint dest = symbol_get_name(symbol);
+        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, symbol);
       } else {
-
+        subt_store_payload(symbol, arg_pos, subtask, subt);
       }
       break;
-    case K_B:
+      
+    case K_B: // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
       break;
     }
     break;
+    
   case DATA: // Store packet payload in associated subtask record.
-    subt_store_payload(payload, arg_pos, subtask, subt);
+    subt_store_payload(symbol, arg_pos, subtask, subt);
     if (subt_is_ready(subtask, subt)) {
       // Perform computation
     }
