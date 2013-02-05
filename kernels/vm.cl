@@ -5,6 +5,9 @@
 #include "SharedMacros.h"
 #include "SharedTypes.h"
 
+// zero symbol, add 32-bit unsigned integer to it to return pointer as symbol
+#define ZERO 0x6240000000000000ULL
+
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_SHIFT 0
 #define PKT_DEST_SHIFT 2
@@ -24,7 +27,7 @@
 #define SYMBOL_NAME_MASK 0xFFFFFFFF
 
 /* Definition of symbol kinds. */
-#define K_S 1
+#define K_S 0
 #define K_R 4
 #define K_B 6
 
@@ -118,8 +121,6 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                    __global int *state,           /* Are we in the READ or WRITE state? */
                    __global bytecode *cStore,     /* The code store. */
                    __global subt *subt,           /* The subtask table. */
-                   __global char *in,             /* Input data from the host. */
-                   __global char *result,         /* Memory to store the final results. */
                    __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
@@ -161,36 +162,65 @@ void parse_pkt(packet p, __global uint2 *q, __global subt *subt) {
   switch (type) {
   case ERROR:
     break;
-    
+  
   case REFERENCE:
-    switch (symbol_get_kind(symbol)) {
-    case K_S: // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|1Bit|Reg|2Bits|NArgs      :SCId|Opcode
-      break;
-      
-    case K_R: // K_R:(Datatype):(Ext):Quoted           :CodePage:6Bits|5Bits|CodeAddress :Name
-      if (!symbol_is_quoted(symbol)) {
-        // subtask_argpos=setSubtask(subtask_argpos,parent_subtask);
-        // subtask_argpos=setArgPos(subtask_argpos,argidx);
-	
-        uint dest = symbol_get_name(symbol);
-        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, symbol);
-      } else {
-        subt_store_payload(symbol, arg_pos, subtask, subt);
-      }
-      break;
-      
-    case K_B: // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
-      break;
-    }
+    /* 
+       - get the payload, i.e. a reference symbol
+       - from that symbol, get the Subtask field which is identical to the CodeAddress   
+       - call parse_subtask() with 
+           - this code address 
+           - the code store 
+           - the scratch memory 
+           - the subtask table 
+           - the output fifos
+       - if the subtasks is ready, call the service_core with the subtask_table and the scratch memory as argument,
+       - the service_core returns a result (a symbol, so a 64-bit word). put that in a data packet and return to the caller 
+       - if the service core has returned, clean up -> recycle subtask record by pushing the subtask back on the stack
+    */
     break;
     
   case DATA: // Store packet payload in associated subtask record.
     subt_store_payload(symbol, arg_pos, subtask, subt);
     if (subt_is_ready(subtask, subt)) {
-      // Perform computation
+      // Perform computation => needs scratch; will return data, needs to create packet & put in queue
     }
     break;
   }
+}
+
+void parse_subtask(code_address,cstore,subt,scratch,queue) {
+    // get a subtask from the stack, i.e. the address of the subtask record, call it subtask
+        // following should be in parse_subtask
+    switch (symbol_get_kind(symbol)) {
+    case K_S: // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|1Bit|Reg|2Bits|NArgs      :SCId|Opcode
+        // you get the number of arguments and the opcode from this and put in the subtask table
+        // need nargs to loop (iterator arg_pos)
+      break;
+      
+    case K_R: // K_R:(Datatype):(Ext):Quoted           :CodePage:6Bits|5Bits|CodeAddress :Name
+      if (!symbol_is_quoted(symbol)) {
+          // dispatch a reference packet 
+          // the returning data symbol needs to be stored at
+          //- the correct subtask (i.e. the current subtask 0
+          //- the correct argumet position
+        // so these two must be put in the reference packet
+        uint dest = symbol_get_name(symbol); // "getSNId" 8MSbs of the Name (name>>24)&0xFF
+        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, symbol);
+      } else {
+        subt_store_payload(symbol, arg_pos, subtask, subt);
+      }
+  
+      break;
+      
+    case K_B: // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
+      subt_store_payload(symbol, arg_pos, subtask, subt);
+      break;
+    }
+        // check subtask status, number of arguments that are present
+     if (subt_is_ready(subtask, subt)) {
+      // Perform computation => needs scratch; will return data, needs to create packet & put in queue
+     }
+
 }
 
 

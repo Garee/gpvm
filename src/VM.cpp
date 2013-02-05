@@ -90,12 +90,6 @@ int main() {
     /* The subtask table. */
     subt *subt = createSubt();
     
-    /* Input data to be worked on. */
-    cl_char *in = new cl_char[IN_SIZE];
-    
-    /* Somewhere to store the results. */
-    cl_char *result = new cl_char[RESULT_SIZE];
-
     /* Scratch array for storing temporary results. */
     cl_char *scratch = new cl_char[SCRATCH_SIZE];
     
@@ -115,12 +109,6 @@ int main() {
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
 
-    cl::Buffer inBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
-    commandQueue.enqueueWriteBuffer(inBuffer, CL_TRUE, 0, sizeof(cl_char), in);
-    
-    cl::Buffer resultBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
-    commandQueue.enqueueWriteBuffer(resultBuffer, CL_TRUE, 0, sizeof(cl_char), result);
-    
     cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
     commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, sizeof(cl_char), scratch);
     
@@ -131,9 +119,7 @@ int main() {
     kernel.setArg(3, stateBuffer);
     kernel.setArg(4, cStoreBuffer);
     kernel.setArg(5, subtBuffer);
-    kernel.setArg(6, inBuffer);
-    kernel.setArg(7, resultBuffer);
-    kernel.setArg(8, scratchBuffer);
+    kernel.setArg(6, scratchBuffer);
     
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
@@ -168,8 +154,6 @@ int main() {
     delete[] queues;
     delete[] readQueues;
     delete[] cStore;
-    delete[] in;
-    delete[] result;
     delete[] scratch;
     delete subt;
     delete state;
