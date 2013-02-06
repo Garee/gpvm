@@ -227,6 +227,8 @@ void parse_subtask(uint code_addr,
   subt_rec_set_service_id(rec, opcode);
 
   for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
+    // symbol = get next symbol.
+    
     switch (symbol_get_kind(symbol)) {
     case K_R:
       if (!symbol_is_quoted(symbol)) {
