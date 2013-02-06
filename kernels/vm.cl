@@ -19,12 +19,17 @@
 #define PKT_SUB_MASK   0xFFC000 // 00000000111111111100000000000000
 
 /* Used to access symbol information. */
-#define SYMBOL_KIND_SHIFT 63
-#define SYMBOL_QUOTED_SHIFT 54
-#define SYMBOL_KIND_MASK 0xF000000000000000
-#define SYMBOL_QUOTED_MASK 0x00
-#define SYMBOL_OPCODE_MASK 0xFFFFFFFF
-#define SYMBOL_NAME_MASK 0xFFFFFFFF
+#define SYMBOL_KIND_SHIFT    63
+#define SYMBOL_QUOTED_SHIFT  54
+#define SYMBOL_SNId_SHIFT    24
+#define SYMBOL_SUBTASK_SHIFT 32
+#define SYMBOL_NARGS_SHIFT   32
+#define SYMBOL_KIND_MASK     0xF000000000000000
+#define SYMBOL_QUOTED_MASK   0x00C0000000000000
+#define SYMBOL_OPCODE_MASK   0xFFFFFFFF
+#define SYMBOL_SNId_MASK     0xFF000000
+#define SYMBOL_SUBTASK_MASK  0xFFFF00000000
+#define SYMBOL_NARGS_MASK    0xD00000000
 
 /* Definition of symbol kinds. */
 #define K_S 0
@@ -55,7 +60,22 @@
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
-void parse_pkt(packet p, __global uint2 *q, __global subt *table);
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch);
+void parse_subtask(uint code_addr,
+                   bytecode symbol,
+                   __global uint2 *q,
+                   int n,
+                   __global bytecode *cStore,
+                   __global subt *subt,
+                   __global char *scratch);
+bytecode service_compute(__global subt* subt, __global char *scratch);
+
+uint symbol_get_kind(ulong s);
+bool symbol_is_quoted(ulong s);
+uint symbol_get_opcode(ulong s);
+uint symbol_get_SNId(ulong s);
+uint symbol_get_subtask(ulong s);
+uint symbol_get_nargs(ulong s);
 
 bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
 bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
@@ -69,6 +89,7 @@ bool subt_push(ushort i, __global subt *subt);
 bool subt_pop(ushort *result, __global subt *subt);
 bool subt_is_full(__global subt *subt);
 bool subt_is_empty(__global subt *subt);
+void subt_cleanup(ushort i, __global subt *subt);
 ushort subt_top(__global subt *subt);
 void subt_set_top(__global subt *subt, ushort i);
 
@@ -99,29 +120,29 @@ void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload(packet *p, uint payload);
 packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
 
-uint q_get_head_index(size_t id, size_t gid, __global uint2 *q, int n);
-uint q_get_tail_index(size_t id, size_t gid, __global uint2 *q, int n);
-void q_set_head_index(uint index, size_t id, size_t gid, __global uint2 *q, int n);
-void q_set_tail_index(uint index, size_t id, size_t gid, __global uint2 *q, int n);
-void q_set_last_op(uint type, size_t id, size_t gid,__global uint2 *q, int n);
-bool q_last_op_is_read(size_t id, size_t gid, __global uint2 *q, int n);
-bool q_last_op_is_write(size_t id, size_t gid, __global uint2 *q, int n);
-bool q_is_empty(size_t id, size_t gid, __global uint2 *q, int n);
-bool q_is_full(size_t id, size_t gid,__global uint2 *q, int n);
-uint q_size(size_t id, size_t gid, __global uint2 *q, int n);
-bool q_read(uint2 *result, size_t id, __global uint2 *q, int n);
-bool q_write(uint2 value, size_t id, __global uint2 *q, int n);
+uint q_get_head_index(size_t id, size_t gid, __global packet *q, int n);
+uint q_get_tail_index(size_t id, size_t gid, __global packet *q, int n);
+void q_set_head_index(uint index, size_t id, size_t gid, __global packet *q, int n);
+void q_set_tail_index(uint index, size_t id, size_t gid, __global packet *q, int n);
+void q_set_last_op(uint type, size_t id, size_t gid,__global packet *q, int n);
+bool q_last_op_is_read(size_t id, size_t gid, __global packet *q, int n);
+bool q_last_op_is_write(size_t id, size_t gid, __global packet *q, int n);
+bool q_is_empty(size_t id, size_t gid, __global packet *q, int n);
+bool q_is_full(size_t id, size_t gid,__global packet *q, int n);
+uint q_size(size_t id, size_t gid, __global packet *q, int n);
+bool q_read(packet *result, size_t id, __global packet *q, int n);
+bool q_write(packet value, size_t id, __global packet *q, int n);
 
 /**************************/
 /******* The Kernel *******/
 /**************************/
 __kernel void vm(__global packet *q,            /* Compute unit queues. */
-                   __global packet *rq,           /* Transfer queues for READ state. */
-                   int n,                         /* The number of compute units. */
-                   __global int *state,           /* Are we in the READ or WRITE state? */
-                   __global bytecode *cStore,     /* The code store. */
-                   __global subt *subt,           /* The subtask table. */
-                   __global char *scratch         /* Scratch memory for temporary results. */
+                 __global packet *rq,           /* Transfer queues for READ state. */
+                 int n,                         /* The number of compute units. */
+                 __global int *state,           /* Are we in the READ or WRITE state? */
+                 __global bytecode *cStore,     /* The code store. */
+                 __global subt *subt,           /* The subtask table. */
+                 __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
   
@@ -131,99 +152,126 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
     for (int i = 0; i < n; i++) {
       packet p;
       while (q_read(&p, i, q, n)) {
-        parse_pkt(p, rq, subt);
+        parse_pkt(p, rq, n, cStore, subt, scratch);
       }
     }
   }
 }
 
-uint symbol_get_kind(ulong s) {
-  return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
-}
-
-bool symbol_is_quoted(ulong s) {
-  return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
-}
-
-uint symbol_get_opcode(ulong s) {
-  return s & SYMBOL_OPCODE_MASK;
-}
-
-uint symbol_get_name(ulong s) {
-  return s & SYMBOL_NAME_MASK;
-}
-
-void parse_pkt(packet p, __global uint2 *q, __global subt *subt) {
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch) {
   uint type = pkt_get_type(p);
-  uint subtask = pkt_get_sub(p);
+  uint destination = pkt_get_dest(p);
   uint arg_pos = pkt_get_arg_pos(p);
-  uint symbol = pkt_get_payload(p);
+  uint subtask = pkt_get_sub(p);
+  uint payload = pkt_get_payload(p);
 
+  /* Get the bytecode symbol from the code store. */
+  bytecode symbol = *(cStore + payload);
+  
   switch (type) {
   case ERROR:
     break;
-  
-  case REFERENCE:
-    /* 
-       - get the payload, i.e. a reference symbol
-       - from that symbol, get the Subtask field which is identical to the CodeAddress   
-       - call parse_subtask() with 
-           - this code address 
-           - the code store 
-           - the scratch memory 
-           - the subtask table 
-           - the output fifos
-       - if the subtasks is ready, call the service_core with the subtask_table and the scratch memory as argument,
-       - the service_core returns a result (a symbol, so a 64-bit word). put that in a data packet and return to the caller 
-       - if the service core has returned, clean up -> recycle subtask record by pushing the subtask back on the stack
-    */
-    break;
     
-  case DATA: // Store packet payload in associated subtask record.
+  case REFERENCE: {
+    /* Get the subtask field which is identical to the CodeAddress. */
+    uint code_addr = symbol_get_subtask(symbol);
+    
+    parse_subtask(code_addr, symbol, q, n, cStore, subt, scratch);
+    
+    if (subt_is_ready(subtask, subt)) {
+      /* If subtask is ready, call the service core with the subtask table and scratch memory as arguments. */
+      bytecode result = service_compute(subt, scratch);
+      
+      /* The service core returns a result (a symbol, 64-bit word), put into data packet and return to caller. */
+      // How to put 64-word in 32-bit payload space?
+      // How to determine caller?
+      // packet p = pkt_create(DATA, ... );
+      
+      /* If the service core has returned, clean up -> recycle subtask record by pushing back onto stack. */
+      subt_cleanup(subtask, subt);
+    }
+    break;
+  }
+    
+  case DATA:
     subt_store_payload(symbol, arg_pos, subtask, subt);
     if (subt_is_ready(subtask, subt)) {
       // Perform computation => needs scratch; will return data, needs to create packet & put in queue
+      bytecode result = service_compute(subt, scratch);
+      subt_cleanup(subtask, subt);
     }
     break;
   }
 }
 
-void parse_subtask(code_address,cstore,subt,scratch,queue) {
-    // get a subtask from the stack, i.e. the address of the subtask record, call it subtask
-        // following should be in parse_subtask
-    switch (symbol_get_kind(symbol)) {
-    case K_S: // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|1Bit|Reg|2Bits|NArgs      :SCId|Opcode
-        // you get the number of arguments and the opcode from this and put in the subtask table
-        // need nargs to loop (iterator arg_pos)
-      break;
-      
-    case K_R: // K_R:(Datatype):(Ext):Quoted           :CodePage:6Bits|5Bits|CodeAddress :Name
-      if (!symbol_is_quoted(symbol)) {
-          // dispatch a reference packet 
-          // the returning data symbol needs to be stored at
-          //- the correct subtask (i.e. the current subtask 0
-          //- the correct argumet position
-        // so these two must be put in the reference packet
-        uint dest = symbol_get_name(symbol); // "getSNId" 8MSbs of the Name (name>>24)&0xFF
-        packet p = pkt_create(REFERENCE, dest, arg_pos, subtask, symbol);
-      } else {
-        subt_store_payload(symbol, arg_pos, subtask, subt);
-      }
+void parse_subtask(uint code_addr,
+		   bytecode symbol,
+		   __global uint2 *q,
+		   int n,
+		   __global bytecode *cStore,
+		   __global subt *subt,
+		   __global char *scratch
+		   ) {
+  /* Get a subtask record from the stack */
+  ushort av_index;
+  if (!subt_pop(&av_index, subt)) return;
+  __global subt_rec *rec = subt_get_rec(av_index, subt);
   
+  // Set record return_as to code_addr? Is code_addr the parent subtask?
+  
+  /* Assume very first bytecode is of type K_S.
+     Get the number of args and opcode and put in subtask table. */
+  uint nargs = symbol_get_nargs(symbol);
+  uint opcode = symbol_get_opcode(symbol);
+  subt_rec_set_nargs_absent(rec, nargs);
+  subt_rec_set_service_id(rec, opcode);
+
+  for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
+    switch (symbol_get_kind(symbol)) {
+    case K_R:
+      if (!symbol_is_quoted(symbol)) {
+        uint dest = symbol_get_SNId(symbol);
+        packet p = pkt_create(REFERENCE, dest, arg_pos, av_index, symbol);
+        q_write(p, dest, q, n);
+      } else {
+        subt_store_payload(symbol, arg_pos, av_index, subt);
+      }
       break;
       
-    case K_B: // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
-      subt_store_payload(symbol, arg_pos, subtask, subt);
+    case K_B:
+      subt_store_payload(symbol, arg_pos, av_index, subt);
       break;
     }
-        // check subtask status, number of arguments that are present
-     if (subt_is_ready(subtask, subt)) {
-      // Perform computation => needs scratch; will return data, needs to create packet & put in queue
-     }
-
+  }
 }
 
+bytecode service_compute(__global subt* subt, __global char *scratch) {
+  return 0;
+}
 
+uint symbol_get_kind(bytecode s) {
+  return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
+}
+
+bool symbol_is_quoted(bytecode s) {
+  return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
+}
+
+uint symbol_get_opcode(bytecode s) {
+  return s & SYMBOL_OPCODE_MASK;
+}
+
+uint symbol_get_SNId(bytecode s) {
+  return s & SYMBOL_SNId_MASK;
+}
+
+uint symbol_get_subtask(bytecode s) {
+  return (s & SYMBOL_SUBTASK_MASK) >> SYMBOL_SUBTASK_SHIFT;
+}
+
+uint symbol_get_nargs(bytecode s) {
+  return (s & SYMBOL_NARGS_MASK) >> SYMBOL_NARGS_SHIFT;
+}
 
 /**************************************/
 /**** Compute Unit Queue Functions ****/
@@ -236,7 +284,7 @@ bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
       return false;
     }
   }
-
+  
   return true;
 }
 
@@ -247,7 +295,7 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
       return false;
     }
   }
-
+  
   return true;
 }
 
@@ -312,6 +360,10 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
   return true;
+}
+
+void subt_cleanup(ushort i, __global subt *subt) {
+  subt_push(i, subt);
 }
 
 bool subt_is_full(__global subt *subt) {

@@ -91,7 +91,7 @@ int main() {
     subt *subt = createSubt();
     
     /* Scratch array for storing temporary results. */
-    cl_char *scratch = new cl_char[SCRATCH_SIZE];
+    cl_char *scratch = new cl_char[SCRATCH_SIZE * computeUnits];
     
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
@@ -109,8 +109,8 @@ int main() {
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
 
-    cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char));
-    commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, sizeof(cl_char), scratch);
+    cl::Buffer scratchBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, SCRATCH_SIZE * sizeof(cl_char) * computeUnits);
+    commandQueue.enqueueWriteBuffer(scratchBuffer, CL_TRUE, 0, SCRATCH_SIZE * sizeof(cl_char) * computeUnits, scratch);
     
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
