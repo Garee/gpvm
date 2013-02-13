@@ -85,7 +85,7 @@ int main() {
     *state = WRITE;
     
     /* The code store. */
-    bytecode *cStore = new bytecode[CSTORE_SIZE];
+    bytecode *cStore = new bytecode[CSTORE_SIZE * QUEUE_SIZE];
     
     /* The subtask table. */
     subt *subt = createSubt();
@@ -103,8 +103,8 @@ int main() {
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
     
-    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * sizeof(bytecode));
-    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * sizeof(bytecode), cStore);
+    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
+    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * QUEUE_SIZE * sizeof(bytecode), cStore);
     
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
@@ -149,7 +149,7 @@ int main() {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
-
+    
     /* Cleanup */
     delete[] queues;
     delete[] readQueues;
