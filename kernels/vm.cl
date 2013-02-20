@@ -51,23 +51,34 @@
 #define PRESENT    2
 
 /* Used to access symbol information. */
-#define SYMBOL_KIND_SHIFT    63
-#define SYMBOL_QUOTED_SHIFT  54
-#define SYMBOL_SNId_SHIFT    24
-#define SYMBOL_SUBTASK_SHIFT 32
-#define SYMBOL_NARGS_SHIFT   32
-#define SYMBOL_KIND_MASK     0xF000000000000000
-#define SYMBOL_QUOTED_MASK   0x00C0000000000000
-#define SYMBOL_OPCODE_MASK   0xFFFFFFFF
-#define SYMBOL_SNId_MASK     0xFF000000
-#define SYMBOL_SUBTASK_MASK  0xFFFF00000000
-#define SYMBOL_NARGS_MASK    0xD00000000
 
-/* Definition of symbol kinds. */
 // 4  :3         :1    :2       :6       :16 2|4                         :32 (8|8|8|8)
 // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SCLId|SCId|Opcode
 // K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :Name
 // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
+
+#define SYMBOL_KIND_MASK     0xF000000000000000 // 11110000000000000000000000000000 00000000000000000000000000000000
+#define SYMBOL_KIND_SHIFT    60
+
+#define SYMBOL_QUOTED_MASK   0xc0000000000000   // 00000000110000000000000000000000 00000000000000000000000000000000
+#define SYMBOL_QUOTED_SHIFT  54
+
+#define SYMBOL_SUBTASK_MASK  0xFFFF00000000     // 00000000000000001111111111111111 00000000000000000000000000000000
+#define SYMBOL_SUBTASK_SHIFT 32
+
+#define SYMBOL_NARGS_MASK    0xF00000000        // 00000000000000000000000000001111 00000000000000000000000000000000
+#define SYMBOL_NARGS_SHIFT   32
+
+#define SYMBOL_SNId_MASK     0xFF000000         // 00000000000000000000000000000000 11111111000000000000000000000000
+#define SYMBOL_SNId_SHIFT    24
+
+#define SYMBOL_OPCODE_MASK   0xFFFFFFFF         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_OPCODE_SHIFT  0
+
+#define SYMBOL_VALUE_MASK    0xFFFFFFFF         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_VALUE_SHIFT   0
+
+/* Definition of symbol kinds. */
 #define K_S 0 // Contains information needed to create subtask record.
 #define K_R 4 // Reference symbol.
 #define K_B 6 // Data symbol.
@@ -83,13 +94,6 @@ uint parse_subtask(uint code_addr,
                    __global subt *subt,
                    __global char *scratch);
 bytecode service_compute(__global subt* subt, uint subtask,__global char *scratch);
-
-uint symbol_get_kind(ulong s);
-bool symbol_is_quoted(ulong s);
-uint symbol_get_opcode(ulong s);
-uint symbol_get_SNId(ulong s);
-uint symbol_get_subtask(ulong s);
-uint symbol_get_nargs(ulong s);
 
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
@@ -118,6 +122,13 @@ void subt_rec_set_subt_status(__global subt_rec *r, uint status);
 void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
+
+uint symbol_get_kind(bytecode s);
+bool symbol_is_quoted(bytecode s);
+uint symbol_get_opcode(bytecode s);
+uint symbol_get_SNId(bytecode s);
+uint symbol_get_subtask(bytecode s);
+uint symbol_get_nargs(bytecode s);
 
 uint q_get_head_index(size_t id, size_t gid, __global packet *q, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global packet *q, int n);
@@ -260,29 +271,7 @@ bytecode service_compute(__global subt* subt, uint subtask, __global char *scrat
   return ZERO;
 }
 
-uint symbol_get_kind(bytecode s) {
-  return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
-}
 
-bool symbol_is_quoted(bytecode s) {
-  return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
-}
-
-uint symbol_get_opcode(bytecode s) {
-  return s & SYMBOL_OPCODE_MASK;
-}
-
-uint symbol_get_SNId(bytecode s) {
-  return s & SYMBOL_SNId_MASK;
-}
-
-uint symbol_get_subtask(bytecode s) {
-  return (s & SYMBOL_SUBTASK_MASK) >> SYMBOL_SUBTASK_SHIFT;
-}
-
-uint symbol_get_nargs(bytecode s) {
-  return (s & SYMBOL_NARGS_MASK) >> SYMBOL_NARGS_SHIFT;
-}
 
 /*********************************/
 /**** Subtask Table Functions ****/
@@ -421,6 +410,45 @@ void subt_rec_set_return_to(__global subt_rec *r, uint return_to) {
 
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
   r->return_as = return_as;
+}
+
+/**************************/
+/**** Symbol Functions ****/
+/**************************/
+
+/* Return the symbol kind. */
+uint symbol_get_kind(bytecode s) {
+  return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
+}
+
+/* Is the symbol quoted? */
+bool symbol_is_quoted(bytecode s) {
+  return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
+}
+
+/* Return the symbol (K_S) opcode. */
+uint symbol_get_opcode(bytecode s) {
+  return (s & SYMBOL_OPCODE_MASK) >> SYMBOL_OPCODE_SHIFT; 
+}
+
+/* Return the symbol (K_R) SNId. */
+uint symbol_get_SNId(bytecode s) {
+  return (s & SYMBOL_SNId_MASK) >> SYMBOL_SNId_SHIFT;
+}
+
+/* Return the symbol (K_R) subtask. */
+uint symbol_get_subtask(bytecode s) {
+  return (s & SYMBOL_SUBTASK_MASK) >> SYMBOL_SUBTASK_SHIFT;
+}
+
+/* Return the symbol (K_S) nargs */
+uint symbol_get_nargs(bytecode s) {
+  return (s & SYMBOL_NARGS_MASK) >> SYMBOL_NARGS_SHIFT;
+}
+
+/* Return the symbol (K_B) value. */
+uint symbol_get_value(bytecode s) {
+  return (s & SYMBOL_VALUE_MASK) >> SYMBOL_VALUE_SHIFT;
 }
 
 /*************************/
