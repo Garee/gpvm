@@ -45,9 +45,6 @@ int main() {
     /* Get the number of compute units for the device. */
     int computeUnits = dInfo.max_compute_units(device);
 
-    /* Calculate the number of queues we need. */
-    int nQueues = computeUnits * computeUnits;
-    
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
@@ -64,8 +61,12 @@ int main() {
 
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
+
+    /* Calculate the number of queues we need. */
+    int nQueues = computeUnits * computeUnits;
     
-    /* Calculate the memory required to store the queues. */
+    /* Calculate the memory required to store the queues. The first nQueue packets are used to store
+       information regarding the queues themselves (head index, tail index and last operation performed). */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
     
     /* Allocate memory for the queues. */
@@ -175,12 +176,15 @@ void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *s
 
 subt *createSubt() {
   subt *table = new subt;
-  table->av_recs[0] = 1; // First index keeps track of top of the stack index.
+
+  if (table) {
+    table->av_recs[0] = 1; // The first element is the top of stack index.
   
-  /* Populate the stack with the available records in the subtask table. */
-  for (int i = 1; i < SUBT_SIZE + 1; i++) {
-    table->av_recs[i] = i - 1;
+    /* Populate the stack with the available records in the subtask table. */
+    for (int i = 1; i < SUBT_SIZE + 1; i++) {
+      table->av_recs[i] = i - 1;
+    }
   }
-  
+    
   return table;
 }

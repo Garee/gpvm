@@ -28,18 +28,18 @@ typedef ulong bytecode;
 
 /* A subtask table record. */
 typedef struct subt_rec {
-  uint service_id;              // [32bits] Opcode
+  uint service_id;              // [32bits] Opcode.
   uint args[QUEUE_SIZE];        // [32bits] Pointers to data or constants.
-  uchar arg_status[QUEUE_SIZE]; // [8bits] Arg status
-  uchar subt_status;            // [4bits] Subtask status, [4bits] number of args absent.
-  uchar return_to;              // [8bits] The service core to return to.
-  ushort return_as;             // [8bits] Subtask record address + [8bits] argument position.
+  uchar arg_status[QUEUE_SIZE]; // [8bits]  The status of the arguments.
+  uchar subt_status;            // [4bits]  Subtask status and [4bits] number of args absent.
+  uchar return_to;              // [8bits]  The service core to return to.
+  ushort return_as;             // [8bits]  Subtask record address and [8bits] argument position.
 } subt_rec;
 
 /* The subtask table with associated available record stack. */
 typedef struct subt {
-  subt_rec recs[SUBT_SIZE];             // The subtask table records.
-  ushort av_recs[SUBT_SIZE + 1];        // Stack of available records.
+  subt_rec recs[SUBT_SIZE];      // The subtask table records.
+  ushort av_recs[SUBT_SIZE + 1]; // Stack of available records.
 } subt;
 
 #endif 

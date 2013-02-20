@@ -33,6 +33,23 @@
 #define VAL 0 // The payload is the value.
 #define PTR 1 // The payload is a pointer to the value.
 
+/* Used to access the information stored within a subtask record. */
+#define SUBTREC_NARGS_ABSENT_MASK    0xF  // 00001111
+#define SUBTREC_NARGS_ABSENT_SHIFT   0
+
+#define SUBTREC_STATUS_MASK          0xF0 // 11110000
+#define SUBTREC_STATUS_SHIFT         4
+
+/* Subtask record status. */
+#define NEW        0
+#define PROCESSING 1
+#define PENDING    2
+
+/* Subtask record arg status. */
+#define ABSENT     0
+#define REQUESTING 1
+#define PRESENT    2
+
 /* Used to access symbol information. */
 #define SYMBOL_KIND_SHIFT    63
 #define SYMBOL_QUOTED_SHIFT  54
@@ -47,25 +64,13 @@
 #define SYMBOL_NARGS_MASK    0xD00000000
 
 /* Definition of symbol kinds. */
-#define K_S 0
-#define K_R 4
-#define K_B 6
-
-/* Used to access the information stored within a subtask record. */
-#define NARGS_ABSENT_SHIFT   0
-#define SUBTREC_STATUS_SHIFT 4
-#define NARGS_ABSENT_MASK    0xF
-#define SUBTREC_STATUS_MASK  0xF0
-
-/* Subtask record status. */
-#define NEW        0
-#define PROCESSING 1
-#define PENDING    2
-
-/* Arg status. */
-#define ABSENT     0
-#define REQUESTING 1
-#define PRESENT    2
+// 4  :3         :1    :2       :6       :16 2|4                         :32 (8|8|8|8)
+// K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SCLId|SCId|Opcode
+// K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :Name
+// K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
+#define K_S 0 // Contains information needed to create subtask record.
+#define K_R 4 // Reference symbol.
+#define K_B 6 // Data symbol.
 
 /***********************************/
 /******* Function Prototypes *******/
@@ -86,9 +91,6 @@ uint symbol_get_SNId(ulong s);
 uint symbol_get_subtask(ulong s);
 uint symbol_get_nargs(ulong s);
 
-bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n);
-bool cunit_q_is_full(size_t gid, __global uint2 *q, int n);
-uint cunit_q_size(size_t gid, __global uint2 *q, int n);
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
 void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt);
@@ -143,7 +145,6 @@ void pkt_set_arg_pos(packet *p, uint arg);
 void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload_type(packet *p, uint ptype);
 void pkt_set_payload(packet *p, uint payload);
-
 
 /**************************/
 /******* The Kernel *******/
@@ -283,52 +284,6 @@ uint symbol_get_nargs(bytecode s) {
   return (s & SYMBOL_NARGS_MASK) >> SYMBOL_NARGS_SHIFT;
 }
 
-/**************************************/
-/**** Compute Unit Queue Functions ****/
-/**************************************/
-
-/* Returns true if all queues owned by the specified compute unit are empty, false otherwise. */
-bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
-  for (int i = 0; i < n; i++) {
-    if (!q_is_empty(gid, i, q, n)) {
-      return false;
-    }
-  }
-  
-  return true;
-}
-
-/* Returns true if all queues owned by the specified compute unit are full, false otherwise. */
-bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
-  for (int i = 0; i < n; i++) {
-    if (!q_is_full(gid, i, q, n)) {
-      return false;
-    }
-  }
-  
-  return true;
-}
-
-/* Return the total size of all compute unit owned queues. */
-uint cunit_q_size(size_t gid, __global uint2 *q, int n) {
-  uint size = 0;
-  for (int i = 0; i < n; i++) {
-    size += q_size(gid, i, q, n);
-  }
-
-  return size;
-}
-
-/* Copy all compute unit owned queue values from the readQueue into the real queues. */
-void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
-  uint2 packet;
-  for (int i = 0; i < n; i++) {
-    while (q_read(&packet, i, rq, n)) {
-      q_write(packet, i, q, n);
-    }
-  }
-}
-
 /*********************************/
 /**** Subtask Table Functions ****/
 /*********************************/
@@ -346,26 +301,31 @@ void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *sub
   subt_rec_set_nargs_absent(rec, nargs_absent);
 }
 
+/* Is the subtask record at index i ready for computation? */
 bool subt_is_ready(ushort i, __global subt *subt) {
   __global subt_rec *rec = subt_get_rec(i, subt);
   return subt_rec_get_nargs_absent(rec) == 0;
 }
 
+/* Return the subtask record at index i in the subtask table. */
 __global subt_rec *subt_get_rec(ushort i, __global subt *subt) {
   return &(subt->recs[i]);
 }
 
+/* Remove the subtask record at index i from the subtask table and return
+   it to the stack of available records. */
 bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
   return true;
 }
 
+/* Return an available subtask record index from the subtask table. */
 bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
@@ -377,22 +337,27 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   return true;
 }
 
+/* Remove and cleanup the subtask record at index i from the subtask table. */
 void subt_cleanup(ushort i, __global subt *subt) {
   subt_push(i, subt);
 }
 
+/* Is the subtask table full? */
 bool subt_is_full(__global subt *subt) {
   return subt_top(subt) == SUBT_SIZE + 1;
 }
 
+/* Is the subtask table empty? */
 bool subt_is_empty(__global subt *subt) {
   return subt_top(subt) == 1;
 }
 
+/* Return the top of available records stack index. */
 ushort subt_top(__global subt *subt) {
   return subt->av_recs[0];
 }
 
+/* Set the top of available records stack index. */
 void subt_set_top(__global subt *subt, ushort i) {
   subt->av_recs[0] = i;
 }
@@ -417,7 +382,7 @@ uint subt_rec_get_subt_status(__global subt_rec *r) {
 }
 
 uint subt_rec_get_nargs_absent(__global subt_rec *r) {
-  return (r->subt_status & NARGS_ABSENT_MASK);
+  return (r->subt_status & SUBTREC_NARGS_ABSENT_MASK);
 }
 
 uint subt_rec_get_return_to(__global subt_rec *r) {
@@ -446,8 +411,8 @@ void subt_rec_set_subt_status(__global subt_rec *r, uint status) {
 }
 
 void subt_rec_set_nargs_absent(__global subt_rec *r, uint n) {
-  r->subt_status = (r->subt_status & ~NARGS_ABSENT_MASK)
-    | ((n << NARGS_ABSENT_SHIFT) & NARGS_ABSENT_MASK);
+  r->subt_status = (r->subt_status & ~SUBTREC_NARGS_ABSENT_MASK)
+    | ((n << SUBTREC_NARGS_ABSENT_SHIFT) & SUBTREC_NARGS_ABSENT_MASK);
 }
 
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to) {
@@ -461,6 +426,16 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
 /*************************/
 /**** Queue Functions ****/
 /*************************/
+
+/* Copy all compute unit owned queue values from the readQueue into the real queues. */
+void transferRQ(__global uint2 *rq, __global uint2 *q, int n) {
+  uint2 packet;
+  for (int i = 0; i < n; i++) {
+    while (q_read(&packet, i, rq, n)) {
+      q_write(packet, i, q, n);
+    }
+  }
+}
 
 /* Returns the array index of the head element of the queue. */
 uint q_get_head_index(size_t id, size_t gid, __global uint2 *q, int n) {
