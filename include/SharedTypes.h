@@ -14,8 +14,13 @@
 #define ulong cl_ulong
 #endif
 
-/* A packet is 2x32bit words. */
-/* Packet contents: [type, destination, arg position, subtask, payload] */
+/* A packet is 2x32bit words.
+   Packet contents:   [subtask, arg_pos, source, type]:32bits [payload]:32bits
+   type:2bits         00000000000000000000000000000011  The packet type.
+   source:8bits       00000000000000000000001111111100  Who sent the packet?
+   arg_pos:4bits      00000000000000000011110000000000  The argument position.
+   subtask:10bits     00000000111111111100000000000000  The subtask record.
+   payload_type:1bit  00000001000000000000000000000000  The payload type. */
 typedef uint2 packet;
 
 /* Bytecode consists of 64bit words. */
@@ -29,7 +34,7 @@ typedef struct subt_rec {
   uchar subt_status;            // [4bits] Subtask status, [4bits] number of args absent.
   uchar return_to;              // [8bits] The service core to return to.
   ushort return_as;             // [8bits] Subtask record address + [8bits] argument position.
-} subt_rec; 
+} subt_rec;
 
 /* The subtask table with associated available record stack. */
 typedef struct subt {

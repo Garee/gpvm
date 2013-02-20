@@ -22,7 +22,7 @@ int main() {
   std::vector<cl::Device> devices;
   cl::Device device;
   cl::Program program;
-
+  
   DeviceInfo dInfo;
 
   try {
@@ -47,7 +47,7 @@ int main() {
 
     /* Calculate the number of queues we need. */
     int nQueues = computeUnits * computeUnits;
-
+    
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
@@ -67,7 +67,7 @@ int main() {
     
     /* Calculate the memory required to store the queues. */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
-
+    
     /* Allocate memory for the queues. */
     packet *queues = new packet[qBufSize];
     packet *readQueues = new packet[qBufSize];

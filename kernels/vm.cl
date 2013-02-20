@@ -9,14 +9,29 @@
 #define ZERO 0x6240000000000000ULL
 
 /* Used to create, manipulate and access packet information. */
-#define PKT_TYPE_SHIFT 0
-#define PKT_DEST_SHIFT 2
-#define PKT_ARG_SHIFT  10
-#define PKT_SUB_SHIFT  14
-#define PKT_TYPE_MASK  0x3      // 00000000000000000000000000000011
-#define PKT_DEST_MASK  0x3FC    // 00000000000000000000001111111100
-#define PKT_ARG_MASK   0x3C00   // 00000000000000000011110000000000
-#define PKT_SUB_MASK   0xFFC000 // 00000000111111111100000000000000
+#define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011
+#define PKT_TYPE_SHIFT  0
+
+#define PKT_SRC_MASK    0x3FC     // 00000000000000000000001111111100
+#define PKT_SRC_SHIFT   2
+
+#define PKT_ARG_MASK    0x3C00    // 00000000000000000011110000000000
+#define PKT_ARG_SHIFT   10
+
+#define PKT_SUB_MASK    0xFFC000  // 00000000111111111100000000000000
+#define PKT_SUB_SHIFT   14
+
+#define PKT_PTYPE_MASK  0x1000000 // 00000001000000000000000000000000
+#define PKT_PTYPE_SHIFT 24
+
+/* Packet Types. */
+#define ERROR     0
+#define REFERENCE 1
+#define DATA      2
+
+/* Definition of packet payload types. */
+#define VAL 0 // The payload is the value.
+#define PTR 1 // The payload is a pointer to the value.
 
 /* Used to access symbol information. */
 #define SYMBOL_KIND_SHIFT    63
@@ -35,18 +50,12 @@
 #define K_S 0
 #define K_R 4
 #define K_B 6
-#define K_P 8
 
 /* Used to access the information stored within a subtask record. */
 #define NARGS_ABSENT_SHIFT   0
 #define SUBTREC_STATUS_SHIFT 4
 #define NARGS_ABSENT_MASK    0xF
 #define SUBTREC_STATUS_MASK  0xF0
-
-/* Packet Types. */
-#define ERROR     0
-#define REFERENCE 1
-#define DATA      2
 
 /* Subtask record status. */
 #define NEW        0
@@ -108,18 +117,6 @@ void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
 
-uint pkt_get_type(packet p);
-uint pkt_get_dest(packet p);
-uint pkt_get_arg_pos(packet p);
-uint pkt_get_sub(packet p);
-uint pkt_get_payload(packet p);
-void pkt_set_type(packet *p, uint type);
-void pkt_set_dest(packet *p, uint dest);
-void pkt_set_arg_pos(packet *p, uint arg);
-void pkt_set_sub(packet *p, uint sub);
-void pkt_set_payload(packet *p, uint payload);
-packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload);
-
 uint q_get_head_index(size_t id, size_t gid, __global packet *q, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global packet *q, int n);
 void q_set_head_index(uint index, size_t id, size_t gid, __global packet *q, int n);
@@ -133,6 +130,21 @@ uint q_size(size_t id, size_t gid, __global packet *q, int n);
 bool q_read(packet *result, size_t id, __global packet *q, int n);
 bool q_write(packet value, size_t id, __global packet *q, int n);
 
+packet pkt_create(uint type, uint source, uint arg, uint sub, uint payload);
+uint pkt_get_type(packet p);
+uint pkt_get_source(packet p);
+uint pkt_get_arg_pos(packet p);
+uint pkt_get_sub(packet p);
+uint pkt_get_payload_type(packet p);
+uint pkt_get_payload(packet p);
+void pkt_set_type(packet *p, uint type);
+void pkt_set_source(packet *p, uint source);
+void pkt_set_arg_pos(packet *p, uint arg);
+void pkt_set_sub(packet *p, uint sub);
+void pkt_set_payload_type(packet *p, uint ptype);
+void pkt_set_payload(packet *p, uint payload);
+
+
 /**************************/
 /******* The Kernel *******/
 /**************************/
@@ -145,7 +157,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global char *scratch         /* Scratch memory for temporary results. */
                  ) {
   size_t gid = get_global_id(0);
-
+  
   if (*state == WRITE) {
     transferRQ(rq, q, n);
   } else {
@@ -160,7 +172,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
 
 void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch) {
   uint type = pkt_get_type(p);
-  uint destination = pkt_get_dest(p);
+  uint destination = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
   uint subtask = pkt_get_sub(p);
   uint address = pkt_get_payload(p);
@@ -168,13 +180,13 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
   switch (type) {
   case ERROR:
     break;
-
+    
   case REFERENCE: {
     uint ref_subtask = parse_subtask(address, q, n, cStore, subt, scratch);
 
     if (subt_is_ready(ref_subtask, subt)) {
       bytecode result = service_compute(subt, ref_subtask, scratch);
-
+      
       packet p = pkt_create(DATA, destination, arg_pos, subtask, result);
       destination = get_global_id(0);
       q_write(p, destination, q, n);
@@ -220,7 +232,7 @@ uint parse_subtask(uint address,
   
   for (int arg_pos = 1; arg_pos < nargs; arg_pos++) {
     symbol = cStore[(address * QUEUE_SIZE) + arg_pos];
-
+    
     switch (symbol_get_kind(symbol)) {
     case K_R:
       if (!symbol_is_quoted(symbol)) {
@@ -282,7 +294,7 @@ bool cunit_q_is_empty(size_t gid, __global uint2 *q, int n) {
       return false;
     }
   }
-
+  
   return true;
 }
 
@@ -293,7 +305,7 @@ bool cunit_q_is_full(size_t gid, __global uint2 *q, int n) {
       return false;
     }
   }
-
+  
   return true;
 }
 
@@ -358,7 +370,7 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
@@ -446,72 +458,6 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
   r->return_as = return_as;
 }
 
-/**************************/
-/**** Packet Functions ****/
-/**************************/
-
-/* Return the packet type. */
-uint pkt_get_type(packet p) {
-  return (p.x & PKT_TYPE_MASK) >> PKT_TYPE_SHIFT;
-}
-
-/* Return the packet destination address. */
-uint pkt_get_dest(packet p) {
-  return (p.x & PKT_DEST_MASK) >> PKT_DEST_SHIFT;
-}
-
-/* Return the packet argument position. */
-uint pkt_get_arg_pos(packet p) {
-  return (p.x & PKT_ARG_MASK) >> PKT_ARG_SHIFT;
-}
-
-/* Return the packet subtask. */
-uint pkt_get_sub(packet p) {
-  return (p.x & PKT_SUB_MASK) >> PKT_SUB_SHIFT;
-}
-
-/* Return the packet payload. */
-uint pkt_get_payload(packet p) {
-  return p.y;
-}
-
-/* Set the packet type. */
-void pkt_set_type(packet *p, uint type) {
-  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_SHIFT) & PKT_TYPE_MASK);
-}
-
-/* Set the packet destination address. */
-void pkt_set_dest(packet *p, uint dest) {
-  (*p).x = ((*p).x & ~PKT_DEST_MASK) | ((dest << PKT_DEST_SHIFT) & PKT_DEST_MASK);
-}
-
-/* Set the packet argument position. */
-void pkt_set_arg_pos(packet *p, uint arg) {
-  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
-}
-
-/* Set the packet subtask. */
-void pkt_set_sub(packet *p, uint sub) {
-  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_SHIFT) & PKT_SUB_MASK);
-}
-
-/* Set the packet payload. */
-void pkt_set_payload(packet *p, uint payload) {
-  (*p).y = payload;
-}
-
-/* Return a newly created packet. */
-packet pkt_create(uint type, uint dest, uint arg, uint sub, uint payload) {
-  packet p;
-  pkt_set_type(&p, type);
-  pkt_set_dest(&p, dest);
-  pkt_set_arg_pos(&p, arg);
-  pkt_set_sub(&p, sub);
-  pkt_set_payload(&p, payload);
-  return p;
-}
-
-
 /*************************/
 /**** Queue Functions ****/
 /*************************/
@@ -585,7 +531,7 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   if (q_is_empty(gid, id, q, n)) {
     return false;
   }
-
+  
   int index = q_get_head_index(gid, id, q, n);
   *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
   q_set_head_index((index + 1) % QUEUE_SIZE, gid, id, q, n);
@@ -600,10 +546,87 @@ bool q_write(uint2 value, size_t id, __global uint2 *q, int n) {
   if (q_is_full(id, gid, q, n)) {
     return false;
   }
-
+  
   int index = q_get_tail_index(id, gid, q, n);
   q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index] = value;
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);
   q_set_last_op(WRITE, id, gid, q, n);
   return true;
 }
+
+/**************************/
+/**** Packet Functions ****/
+/**************************/
+
+/* Return a newly created packet. */
+packet pkt_create(uint type, uint source, uint arg, uint sub, uint payload) {
+  packet p;
+  pkt_set_type(&p, type);
+  pkt_set_source(&p, source);
+  pkt_set_arg_pos(&p, arg);
+  pkt_set_sub(&p, sub);
+  pkt_set_payload_type(&p, VAL);
+  pkt_set_payload(&p, payload);
+  return p;
+}
+
+/* Return the packet type. */
+uint pkt_get_type(packet p) {
+  return (p.x & PKT_TYPE_MASK) >> PKT_TYPE_SHIFT;
+}
+
+/* Return the packet source address. */
+uint pkt_get_source(packet p) {
+  return (p.x & PKT_SRC_MASK) >> PKT_SRC_SHIFT;
+}
+
+/* Return the packet argument position. */
+uint pkt_get_arg_pos(packet p) {
+  return (p.x & PKT_ARG_MASK) >> PKT_ARG_SHIFT;
+}
+
+/* Return the packet subtask. */
+uint pkt_get_sub(packet p) {
+  return (p.x & PKT_SUB_MASK) >> PKT_SUB_SHIFT;
+}
+
+/* Return the packet payload type. */
+uint pkt_get_payload_type(packet p) {
+  return (p.x & PKT_PTYPE_MASK) >> PKT_PTYPE_SHIFT;
+}
+
+/* Return the packet payload. */
+uint pkt_get_payload(packet p) {
+  return p.y;
+}
+
+/* Set the packet type. */
+void pkt_set_type(packet *p, uint type) {
+  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_SHIFT) & PKT_TYPE_MASK);
+}
+
+/* Set the packet source address. */
+void pkt_set_source(packet *p, uint source) {
+  (*p).x = ((*p).x & ~PKT_SRC_MASK) | ((source << PKT_SRC_SHIFT) & PKT_SRC_MASK);
+}
+
+/* Set the packet argument position. */
+void pkt_set_arg_pos(packet *p, uint arg) {
+  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
+}
+
+/* Set the packet subtask. */
+void pkt_set_sub(packet *p, uint sub) {
+  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_SHIFT) & PKT_SUB_MASK);
+}
+
+/* Set the packet payload type. */
+void pkt_set_payload_type(packet *p, uint ptype) {
+  (*p).x = ((*p).x & ~PKT_PTYPE_MASK) | ((ptype << PKT_PTYPE_SHIFT) & PKT_PTYPE_MASK);
+}
+
+/* Set the packet payload. */
+void pkt_set_payload(packet *p, uint payload) {
+  (*p).y = payload;
+}
+
