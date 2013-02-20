@@ -475,6 +475,34 @@ static char *test_subt_get_rec() {
   return NULL;
 }
 
+static char *test_symbol_get_kind() {
+  return NULL;
+}
+
+static char *test_symbol_is_quoted() {
+  return NULL;
+}
+
+static char *test_symbol_get_opcode() {
+  return NULL;
+}
+
+static char *test_symbol_get_SNId() {
+  return NULL;
+}
+
+static char *test_symbol_get_subtask() {
+  return NULL;
+}
+
+static char *test_symbol_get_nargs() {
+  return NULL;
+}
+
+static char *test_symbol_get_value() {
+  return NULL;
+}
+
 static char *all_tests() {
   mu_run_test(test_pkt_get_type);
   mu_run_test(test_pkt_get_source);
@@ -504,7 +532,7 @@ static char *all_tests() {
   mu_run_test(test_q_write);
 
   mu_run_test(test_transferRQ);
-
+  
   mu_run_test(test_subt_rec_get_service_id);
   mu_run_test(test_subt_rec_get_arg);
   mu_run_test(test_subt_rec_get_subt_status);
@@ -525,6 +553,14 @@ static char *all_tests() {
   mu_run_test(test_subt_push);
   mu_run_test(test_subt_pop);
   mu_run_test(test_subt_get_rec);
+
+  mu_run_test(test_symbol_get_kind);
+  mu_run_test(test_symbol_is_quoted);
+  mu_run_test(test_symbol_get_opcode);
+  mu_run_test(test_symbol_get_SNId);
+  mu_run_test(test_symbol_get_subtask);
+  mu_run_test(test_symbol_get_nargs);
+  mu_run_test(test_symbol_get_value);
   
   return NULL;
 }

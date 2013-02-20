@@ -6,7 +6,7 @@
 #include "SharedTypes.h"
 
 /* Zero symbol, add 32-bit unsigned integer to it to return pointer as symbol */
-#define ZERO 0x6240000000000000ULL
+#define SYMBOL_ZERO 0x6240000000000000
 
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011
@@ -123,12 +123,24 @@ void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
 
+bytecode symbol_KS_create(uint nargs, uint opcode);
+bytecode symbol_KR_create(uint subtask, uint SNId);
+bytecode symbol_KB_create(uint value);
 uint symbol_get_kind(bytecode s);
 bool symbol_is_quoted(bytecode s);
 uint symbol_get_opcode(bytecode s);
 uint symbol_get_SNId(bytecode s);
 uint symbol_get_subtask(bytecode s);
 uint symbol_get_nargs(bytecode s);
+uint symbol_get_value(bytecode s);
+void symbol_set_kind(bytecode *s, ulong kind);
+void symbol_quote(bytecode *s);
+void symbol_unquote(bytecode *s);
+void symbol_set_opcode(bytecode *s, ulong opcode);
+void symbol_set_SNId(bytecode *s, ulong SNId);
+void symbol_set_subtask(bytecode *s, ulong subtask);
+void symbol_set_nargs(bytecode *s, ulong nargs);
+void symbol_set_value(bytecode *s, ulong value);
 
 uint q_get_head_index(size_t id, size_t gid, __global packet *q, int n);
 uint q_get_tail_index(size_t id, size_t gid, __global packet *q, int n);
@@ -236,7 +248,7 @@ uint parse_subtask(uint address,
   __global subt_rec *rec = subt_get_rec(av_index, subt);
 
   bytecode symbol = cStore[address * QUEUE_SIZE];
-
+  
   uint nargs = symbol_get_nargs(symbol);
   uint opcode = symbol_get_opcode(symbol);
   subt_rec_set_nargs_absent(rec, nargs);
@@ -261,14 +273,14 @@ uint parse_subtask(uint address,
       break;
     }
   }
-
+  
   return av_index;
 }
 
 bytecode service_compute(__global subt* subt, uint subtask, __global char *scratch) {
   // suppose you write to scratch @ scratch_addr, then return the address as K_P symbol
   // (K_P<<60)+scratch_addr
-  return ZERO;
+  return SYMBOL_ZERO;
 }
 
 
@@ -416,6 +428,32 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
 /**** Symbol Functions ****/
 /**************************/
 
+bytecode symbol_KS_create(uint nargs, uint opcode) {
+  bytecode s;
+  symbol_set_kind(&s, K_S);
+  symbol_unquote(&s);
+  symbol_set_nargs(&s, nargs);
+  symbol_set_opcode(&s, opcode);
+  return s;
+}
+
+bytecode symbol_KR_create(uint subtask, uint SNId) {
+  bytecode s;
+  symbol_set_kind(&s, K_R);
+  symbol_unquote(&s);
+  symbol_set_subtask(&s, subtask);
+  symbol_set_SNId(&s, SNId);
+  return s;
+}
+
+bytecode symbol_KB_create(uint value) {
+  bytecode s;
+  symbol_set_kind(&s, K_B);
+  symbol_unquote(&s);
+  symbol_set_value(&s, value);
+  return s;
+}
+
 /* Return the symbol kind. */
 uint symbol_get_kind(bytecode s) {
   return (s & SYMBOL_KIND_MASK) >> SYMBOL_KIND_SHIFT;
@@ -449,6 +487,38 @@ uint symbol_get_nargs(bytecode s) {
 /* Return the symbol (K_B) value. */
 uint symbol_get_value(bytecode s) {
   return (s & SYMBOL_VALUE_MASK) >> SYMBOL_VALUE_SHIFT;
+}
+
+void symbol_set_kind(bytecode *s, ulong kind) {
+  *s = ((*s) & ~SYMBOL_KIND_MASK) | ((kind << SYMBOL_KIND_SHIFT) & SYMBOL_KIND_MASK);
+}
+
+void symbol_quote(bytecode *s) {
+  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((1 << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
+}
+
+void symbol_unquote(bytecode *s) {
+  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((0 << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
+}
+
+void symbol_set_opcode(bytecode *s, ulong opcode) {
+  *s = ((*s) & ~SYMBOL_OPCODE_MASK) | ((opcode << SYMBOL_OPCODE_SHIFT) & SYMBOL_OPCODE_MASK);
+}
+
+void symbol_set_SNId(bytecode *s, ulong SNId) {
+  *s = ((*s) & ~SYMBOL_SNId_MASK) | ((SNId << SYMBOL_SNId_SHIFT) & SYMBOL_SNId_MASK);
+}
+
+void symbol_set_subtask(bytecode *s, ulong subtask) {
+  *s = ((*s) & ~SYMBOL_SUBTASK_MASK) | ((subtask << SYMBOL_SUBTASK_SHIFT) & SYMBOL_SUBTASK_MASK);
+}
+
+void symbol_set_nargs(bytecode *s, ulong nargs) {
+  *s = ((*s) & ~SYMBOL_NARGS_MASK) | ((nargs << SYMBOL_NARGS_SHIFT) & SYMBOL_NARGS_MASK);
+}
+
+void symbol_set_value(bytecode *s, ulong value) {
+  *s = ((*s) & ~SYMBOL_VALUE_MASK) | ((value << SYMBOL_VALUE_SHIFT) & SYMBOL_VALUE_MASK);
 }
 
 /*************************/
