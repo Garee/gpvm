@@ -29,7 +29,7 @@ typedef ulong bytecode;
 /* A subtask table record. */
 typedef struct subt_rec {
   uint service_id;              // [32bits] Opcode.
-  uint args[QUEUE_SIZE];        // [32bits] Pointers to data or constants.
+  bytecode args[QUEUE_SIZE];    // [64bits] Pointers to data or constants.
   uchar arg_status[QUEUE_SIZE]; // [8bits]  The status of the arguments.
   uchar subt_status;            // [4bits]  Subtask status and [4bits] number of args absent.
   uchar return_to;              // [8bits]  The service core to return to.

@@ -9,6 +9,18 @@
 
 int tests_run = 0;
 
+void printB(ulong n) {
+  while (n) {
+    if (n & 1)
+      printf("1");
+    else
+      printf("0");
+    
+    n >>= 1;
+  }
+  printf("\n");
+}
+
 /* Helper Functions. */
 packet *q_create() {
   packet *q = malloc((16 + (QUEUE_SIZE * 16)) * sizeof(packet));
@@ -18,7 +30,7 @@ packet *q_create() {
       q[i].y = 0;
     }
   }
-
+  
   return q;
 }
 
@@ -31,11 +43,16 @@ subt_rec *subt_rec_create(uint service_id) {
   if (rec) {
     subt_rec_set_service_id(rec, service_id);
     subt_rec_set_subt_status(rec, NEW);
+    
+    for (int i = 0; i < QUEUE_SIZE; i++) {
+      subt_rec_set_arg(rec, i, 0);
+    }
+    
     subt_rec_set_nargs_absent(rec, 1);
     subt_rec_set_return_to(rec, 2);
     subt_rec_set_return_as(rec, 3);
   }
-
+  
   return rec;
 }
 
@@ -44,7 +61,7 @@ void subt_rec_destroy(subt_rec *rec) {
 }
 
 subt *subt_create() {
-  subt *subt = malloc(sizeof(subt));
+  subt *subt = malloc(sizeof(subt_rec) * SUBT_SIZE + sizeof(ushort) * SUBT_SIZE + 1);
   if (subt) {
     subt->av_recs[0] = 1;
     for (int i = 1; i < SUBT_SIZE + 1; i++) {

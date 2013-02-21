@@ -5,8 +5,11 @@
 #include "SharedMacros.h"
 #include "SharedTypes.h"
 
-/* Zero symbol, add 32-bit unsigned integer to it to return pointer as symbol */
-#define SYMBOL_ZERO 0x6240000000000000
+/* Base K_B symbol. */
+#define SYMBOL_KB_ZERO 0x6000000000000000
+
+/* Base K_P symbol. */
+#define SYMBOL_KP_ZERO 0x8000000000000000
 
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011
@@ -88,15 +91,20 @@
 #define K_S 0 // Contains information needed to create subtask record.
 #define K_R 4 // Reference symbol.
 #define K_B 6 // Data symbol.
+#define K_P 8 // Contains a pointer to scratch memory.
+
+/* Definition of computation class types - Placeholders */
+#define ALU 0
+#define XYZ 1
 
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
 void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch);
 uint parse_subtask(uint source,
-		   uint arg_pos,
-		   uint subtask,
-		   uint address,
+                   uint arg_pos,
+                   uint subtask,
+                   uint address,
                    __global uint2 *q,
                    int n,
                    __global bytecode *cStore,
@@ -107,7 +115,7 @@ bool computation_complete(__global packet *q, int n);
 
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
-void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt);
+void subt_store_payload(uint payload, uint payload_type, uint arg_pos, ushort i, __global subt *subt);
 bool subt_is_ready(ushort i, __global subt *subt);
 __global subt_rec *subt_get_rec(ushort i, __global subt *subt);
 bool subt_push(ushort i, __global subt *subt);
@@ -119,7 +127,7 @@ ushort subt_top(__global subt *subt);
 void subt_set_top(__global subt *subt, ushort i);
 
 uint subt_rec_get_service_id(__global subt_rec *r);
-uint subt_rec_get_arg(__global subt_rec *r, uint arg_pos);
+bytecode subt_rec_get_arg(__global subt_rec *r, uint arg_pos);
 uint subt_rec_get_arg_status(__global subt_rec *r, uint arg_pos);
 uint subt_rec_get_subt_status(__global subt_rec *r);
 uint subt_rec_get_nargs_absent(__global subt_rec *r);
@@ -128,15 +136,15 @@ uint subt_rec_get_return_as(__global subt_rec *r);
 uint subt_rec_get_return_as_addr(__global subt_rec *r);
 uint subt_rec_get_return_as_pos(__global subt_rec *r);
 void subt_rec_set_service_id(__global subt_rec *r, uint service_id);
-void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg);
+void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, bytecode arg);
 void subt_rec_set_arg_status(__global subt_rec *r, uint arg_pos, uint status);
 void subt_rec_set_subt_status(__global subt_rec *r, uint status);
 void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
-uint subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr);
-uint subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos);
-  
+void subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr);
+void subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos);
+
 bytecode symbol_KS_create(uint nargs, uint opcode);
 bytecode symbol_KR_create(uint subtask, uint SNId);
 bytecode symbol_KB_create(uint value);
@@ -214,13 +222,12 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
 bool computation_complete(__global packet *q, int n) {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
-      packet p;
       if (!q_is_empty(i, j, q, n)) {
-	return false;
+        return false;
       }
     }
   }
-  
+
   return true;
 }
 
@@ -229,13 +236,14 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
   uint source = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
   uint subtask = pkt_get_sub(p);
+  uint payload_type = pkt_get_payload_type(p);
   uint address = pkt_get_payload(p);
-
+  
   switch (type) {
   case ERROR:
     break;
-    
-  case REFERENCE:
+
+  case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, scratch);
     
@@ -244,19 +252,26 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
       bytecode result = service_compute(subt, ref_subtask, scratch);
       
       /* Create a new packet containing the computation results. */
-      packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, result);
+      packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, symbol_get_value(result));
       
+      if (symbol_get_kind(result) == K_P) {
+        pkt_set_payload_type(&p, PTR);
+      } else {
+        pkt_set_payload_type(&p, VAL);
+      }
+
       /* Send the result back to the compute unit that sent the reference request. */
       q_write(p, source, q, n);
-      
+
       /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(ref_subtask, subt);
     }
     break;
+  }
     
   case DATA:
     /* Store the data in the subtask record. */
-    subt_store_payload(address, arg_pos, subtask, subt);
+    subt_store_payload(address, payload_type, arg_pos, subtask, subt);
     
     if (subt_is_ready(subtask, subt)) {
       /* Perform the computation. */
@@ -269,9 +284,16 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
       uint return_as_pos = subt_rec_get_return_as_pos(rec);
       
       /* Create and send new packet containing the computation results. */
-      packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
-      q_write(p, return_to, q, n);
+      packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, symbol_get_value(result));
+
+      if (symbol_get_kind(result) == K_P) {
+        pkt_set_payload_type(&p, PTR);
+      } else {
+        pkt_set_payload_type(&p, VAL);
+      }
       
+      q_write(p, return_to, q, n);
+
       /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(subtask, subt);
     }
@@ -280,7 +302,7 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
 }
 
 uint parse_subtask(uint source,
-		   uint arg_pos,
+                   uint arg_pos,
                    uint subtask,
                    uint address,
                    __global uint2 *q,
@@ -293,10 +315,10 @@ uint parse_subtask(uint source,
   ushort av_index;
   while (!subt_pop(&av_index, subt)) {}
   __global subt_rec *rec = subt_get_rec(av_index, subt);
-  
+
   /* Get the K_S symbol from the code store. */
   bytecode symbol = cStore[address * QUEUE_SIZE];
-  
+
   /* Create a new subtask record. */
   uint nargs = symbol_get_nargs(symbol);
   uint opcode = symbol_get_opcode(symbol);
@@ -306,32 +328,38 @@ uint parse_subtask(uint source,
   subt_rec_set_return_to(rec, source);
   subt_rec_set_return_as_addr(rec, subtask);
   subt_rec_set_return_as_pos(rec, arg_pos);
-
+  
   /* Begin argument processing */
   subt_rec_set_subt_status(rec, PROCESSING);
   
   for (int arg_pos = 1; arg_pos < nargs; arg_pos++) {
+    /* Mark argument as absent. */
+    subt_rec_set_arg_status(rec, arg_pos, ABSENT);
+
     /* Get the next symbol (K_R or K_B) */
     symbol = cStore[(address * QUEUE_SIZE) + arg_pos];
     
     switch (symbol_get_kind(symbol)) {
     case K_R:
       if (symbol_is_quoted(symbol)) {
-        subt_store_payload(symbol, arg_pos, av_index, subt);
+        subt_store_payload(symbol, VAL, arg_pos, av_index, subt);
       } else {
-	/* Create a packet to request a computation. */
+        /* Create a packet to request a computation. */
         packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, symbol);
-
-	/* Find out which service should perform the computation. */
+	
+        /* Find out which service should perform the computation. */
         uint destination = symbol_get_SNId(symbol); // TODO run-time dest allocation
 
-	/* Send the packet and request the computation. */
+        /* Send the packet and request the computation. */
         q_write(p, destination, q, n);
+	
+        /* Mark argument as requested. */
+        subt_rec_set_arg_status(rec, arg_pos, REQUESTING);
       }
       break;
       
     case K_B:
-      subt_store_payload(symbol, arg_pos, av_index, subt);
+      subt_store_payload(symbol_get_value(symbol), VAL, arg_pos, av_index, subt);
       break;
     }
   }
@@ -340,26 +368,54 @@ uint parse_subtask(uint source,
 }
 
 bytecode service_compute(__global subt* subt, uint subtask, __global char *scratch) {
-  // suppose you write to scratch @ scratch_addr, then return the address as K_P symbol
-  // (K_P<<60)+scratch_addr
-  return SYMBOL_ZERO;
+  /* Get the opcode */
+  __global subt_rec *rec = subt_get_rec(subtask, subt);
+  uint opcode = subt_rec_get_service_id(rec);
+  
+  uint library = opcode >> 24; // SCLId
+  uint class = (opcode & 0xFF0000) >> 16; // SCId
+  uint method = opcode & 0xFFFF; // Method is last 16 bits?
+
+  switch (class) {
+  case ALU:
+    switch (method) {
+    case 1:
+      break;
+      
+    case 2:
+      break;
+    }
+    break;
+    
+  case XYZ:
+    switch (method) {
+    case 1:
+      break;
+      
+    case 2:
+      break;
+    }
+    break;
+  }
+  
+  // If result written to scratch, return K_P symbol otherwise K_B.
+  return SYMBOL_KB_ZERO;
 }
-
-
 
 /*********************************/
 /**** Subtask Table Functions ****/
 /*********************************/
 
-void subt_store_payload(uint payload, uint arg_pos, ushort i, __global subt *subt) {
-  // Payload is 32 bits
-  // Arguments are 64-bit symbols (must be)
-  // So need to create symbol from payload
-  // get kind from packet header, set "quoted" field to 1; put payload in LSBs
-  // (kind<<60)+(1<<56)+payload
+void subt_store_payload(uint payload, uint payload_type, uint arg_pos, ushort i, __global subt *subt) {
   __global subt_rec *rec = subt_get_rec(i, subt);
+  
+  if (payload_type == PTR) {
+    subt_rec_set_arg(rec, arg_pos, SYMBOL_KP_ZERO + payload);
+  } else {
+    subt_rec_set_arg(rec, arg_pos, SYMBOL_KB_ZERO + payload);
+  }
+
   uint nargs_absent = subt_rec_get_nargs_absent(rec) - 1;
-  subt_rec_set_arg(rec, arg_pos, payload);
   subt_rec_set_arg_status(rec, arg_pos, PRESENT);
   subt_rec_set_nargs_absent(rec, nargs_absent);
 }
@@ -381,7 +437,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -393,7 +449,7 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
@@ -432,7 +488,7 @@ uint subt_rec_get_service_id(__global subt_rec *r) {
   return r->service_id;
 }
 
-uint subt_rec_get_arg(__global subt_rec *r, uint arg_pos) {
+bytecode subt_rec_get_arg(__global subt_rec *r, uint arg_pos) {
   return r->args[arg_pos];
 }
 
@@ -468,7 +524,7 @@ void subt_rec_set_service_id(__global subt_rec *r, uint service_id) {
   r->service_id = service_id;
 }
 
-void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg) {
+void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, bytecode arg) {
   r->args[arg_pos] = arg;
 }
 
@@ -494,12 +550,12 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
   r->return_as = return_as;
 }
 
-uint subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr) {
+void subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr) {
   r->return_as = (r->return_as & ~SUBTREC_RETURN_AS_ADDR_MASK)
     | ((return_as_addr << SUBTREC_RETURN_AS_ADDR_SHIFT) & SUBTREC_RETURN_AS_ADDR_MASK);
 }
 
-uint subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos) {
+void subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos) {
   r->return_as = (r->return_as & ~SUBTREC_RETURN_AS_POS_MASK)
     | ((return_as_pos << SUBTREC_RETURN_AS_POS_SHIFT) & SUBTREC_RETURN_AS_POS_MASK);
 }
@@ -507,18 +563,6 @@ uint subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos) {
 /**************************/
 /**** Symbol Functions ****/
 /**************************/
-
-void printB(ulong n) {
-  while (n) {
-    if (n & 1)
-      printf("1");
-    else
-      printf("0");
-    
-    n >>= 1;
-  }
-  printf("\n");
-}
 
 bytecode symbol_KS_create(uint nargs, uint opcode) {
   bytecode s = 0;
@@ -558,7 +602,7 @@ bool symbol_is_quoted(bytecode s) {
 
 /* Return the symbol (K_S) opcode. */
 uint symbol_get_opcode(bytecode s) {
-  return (s & SYMBOL_OPCODE_MASK) >> SYMBOL_OPCODE_SHIFT; 
+  return (s & SYMBOL_OPCODE_MASK) >> SYMBOL_OPCODE_SHIFT;
 }
 
 /* Return the symbol (K_R) SNId. */
@@ -696,7 +740,7 @@ bool q_read(uint2 *result, size_t id, __global uint2 *q, int n) {
   if (q_is_empty(gid, id, q, n)) {
     return false;
   }
-  
+
   int index = q_get_head_index(gid, id, q, n);
   *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
   q_set_head_index((index + 1) % QUEUE_SIZE, gid, id, q, n);
@@ -794,4 +838,3 @@ void pkt_set_payload_type(packet *p, uint ptype) {
 void pkt_set_payload(packet *p, uint payload) {
   (*p).y = payload;
 }
-
