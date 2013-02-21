@@ -94,6 +94,7 @@ uint parse_subtask(uint code_addr,
                    __global subt *subt,
                    __global char *scratch);
 bytecode service_compute(__global subt* subt, uint subtask,__global char *scratch);
+bool computation_complete(__global packet *q, int n);
 
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
@@ -184,6 +185,9 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
   
   if (*state == WRITE) {
     transferRQ(rq, q, n);
+    if (computation_complete(q, n)) {
+      *state = COMPLETE;
+    }
   } else {
     for (int i = 0; i < n; i++) {
       packet p;
@@ -192,6 +196,21 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
       }
     }
   }
+}
+
+/* Is the entire computation complete? When all compute units are inactive (no packets in their queues)
+   the computation is complete. */
+bool computation_complete(__global packet *q, int n) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      packet p;
+      if (!q_is_empty(i, j, q, n)) {
+	return false;
+      }
+    }
+  }
+  
+  return true;
 }
 
 void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch) {

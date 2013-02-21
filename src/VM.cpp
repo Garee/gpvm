@@ -31,9 +31,12 @@ int main() {
     
     /* Create a vector of available devices (GPU Priority). */
     try {
-      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      /* Use CPU for development/debugging. */
+      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+      
+      // platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
     } catch (cl::Error error) {
-      platforms[0].getDevices(CL_DEVICE_TYPE_DEFAULT, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
 
     /* Create a platform context for the available devices. */
@@ -80,7 +83,7 @@ int main() {
       readQueues[i].x = 0;
       readQueues[i].y = 0;
     }
-
+    
     /* Which stage of the READ/WRITE cycle are we in? */
     int *state = new int;
     *state = WRITE;
