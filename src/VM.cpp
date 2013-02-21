@@ -31,10 +31,7 @@ int main() {
     
     /* Create a vector of available devices (GPU Priority). */
     try {
-      /* Use CPU for development/debugging. */
-      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
-      
-      // platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
