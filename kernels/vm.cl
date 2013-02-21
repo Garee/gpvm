@@ -57,25 +57,25 @@
 // K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :Name
 // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
 
-#define SYMBOL_KIND_MASK     0xF000000000000000 // 11110000000000000000000000000000 00000000000000000000000000000000
+#define SYMBOL_KIND_MASK     0xF000000000000000ULL // 11110000000000000000000000000000 00000000000000000000000000000000
 #define SYMBOL_KIND_SHIFT    60
 
-#define SYMBOL_QUOTED_MASK   0xc0000000000000   // 00000000110000000000000000000000 00000000000000000000000000000000
+#define SYMBOL_QUOTED_MASK   0xc0000000000000ULL   // 00000000110000000000000000000000 00000000000000000000000000000000
 #define SYMBOL_QUOTED_SHIFT  54
 
-#define SYMBOL_SUBTASK_MASK  0xFFFF00000000     // 00000000000000001111111111111111 00000000000000000000000000000000
+#define SYMBOL_SUBTASK_MASK  0xFFFF00000000ULL     // 00000000000000001111111111111111 00000000000000000000000000000000
 #define SYMBOL_SUBTASK_SHIFT 32
 
-#define SYMBOL_NARGS_MASK    0xF00000000        // 00000000000000000000000000001111 00000000000000000000000000000000
+#define SYMBOL_NARGS_MASK    0xF00000000ULL        // 00000000000000000000000000001111 00000000000000000000000000000000
 #define SYMBOL_NARGS_SHIFT   32
 
-#define SYMBOL_SNId_MASK     0xFF000000         // 00000000000000000000000000000000 11111111000000000000000000000000
+#define SYMBOL_SNId_MASK     0xFF000000ULL         // 00000000000000000000000000000000 11111111000000000000000000000000
 #define SYMBOL_SNId_SHIFT    24
 
-#define SYMBOL_OPCODE_MASK   0xFFFFFFFF         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_OPCODE_MASK   0xFFFFFFFFULL         // 00000000000000000000000000000000 11111111111111111111111111111111
 #define SYMBOL_OPCODE_SHIFT  0
 
-#define SYMBOL_VALUE_MASK    0xFFFFFFFF         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_VALUE_MASK    0xFFFFFFFFULL         // 00000000000000000000000000000000 11111111111111111111111111111111
 #define SYMBOL_VALUE_SHIFT   0
 
 /* Definition of symbol kinds. */
@@ -225,7 +225,7 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
     
     if (subt_is_ready(subtask, subt)) {
       bytecode result = service_compute(subt, subtask, scratch);
-
+      
       packet p = pkt_create(DATA, destination, arg_pos, subtask, result);
       q_write(p, destination, q, n);
       
@@ -246,7 +246,7 @@ uint parse_subtask(uint address,
   ushort av_index;
   while (!subt_pop(&av_index, subt)) {}
   __global subt_rec *rec = subt_get_rec(av_index, subt);
-
+  
   bytecode symbol = cStore[address * QUEUE_SIZE];
   
   uint nargs = symbol_get_nargs(symbol);
@@ -428,8 +428,20 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
 /**** Symbol Functions ****/
 /**************************/
 
+void printB(ulong n) {
+  while (n) {
+    if (n & 1)
+      printf("1");
+    else
+      printf("0");
+    
+    n >>= 1;
+  }
+  printf("\n");
+}
+
 bytecode symbol_KS_create(uint nargs, uint opcode) {
-  bytecode s;
+  bytecode s = 0;
   symbol_set_kind(&s, K_S);
   symbol_unquote(&s);
   symbol_set_nargs(&s, nargs);
@@ -438,7 +450,7 @@ bytecode symbol_KS_create(uint nargs, uint opcode) {
 }
 
 bytecode symbol_KR_create(uint subtask, uint SNId) {
-  bytecode s;
+  bytecode s = 0;
   symbol_set_kind(&s, K_R);
   symbol_unquote(&s);
   symbol_set_subtask(&s, subtask);
@@ -447,7 +459,7 @@ bytecode symbol_KR_create(uint subtask, uint SNId) {
 }
 
 bytecode symbol_KB_create(uint value) {
-  bytecode s;
+  bytecode s = 0;
   symbol_set_kind(&s, K_B);
   symbol_unquote(&s);
   symbol_set_value(&s, value);
@@ -494,11 +506,11 @@ void symbol_set_kind(bytecode *s, ulong kind) {
 }
 
 void symbol_quote(bytecode *s) {
-  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((1 << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
+  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((1ULL << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
 }
 
 void symbol_unquote(bytecode *s) {
-  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((0 << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
+  *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((0ULL << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
 }
 
 void symbol_set_opcode(bytecode *s, ulong opcode) {

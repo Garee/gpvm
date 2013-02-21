@@ -475,31 +475,128 @@ static char *test_subt_get_rec() {
   return NULL;
 }
 
+static char *test_symbol_KS_create() {
+  bytecode s = symbol_KS_create(1, 1);
+  mu_assert("FAIL: test_symbol_KS_create [1]", symbol_get_kind(s) == K_S);
+  mu_assert("FAIL: test_symbol_KS_create [2]", !symbol_is_quoted(s));
+  mu_assert("FAIL: test_symbol_KS_create [3]", symbol_get_nargs(s) == 1);
+  mu_assert("FAIL: test_symbol_KS_create [4]", symbol_get_opcode(s) == 1);
+  return NULL;
+}
+
+static char *test_symbol_KR_create() {
+  bytecode s = symbol_KR_create(1, 1);
+  mu_assert("FAIL: test_symbol_KR_create [1]", symbol_get_kind(s) == K_R);
+  mu_assert("FAIL: test_symbol_KR_create [2]", !symbol_is_quoted(s));
+  mu_assert("FAIL: test_symbol_KR_create [3]", symbol_get_subtask(s) == 1);
+  mu_assert("FAIL: test_symbol_KR_create [4]", symbol_get_SNId(s) == 1);
+  return NULL;
+}
+
+static char *test_symbol_KB_create() {
+  bytecode s = symbol_KB_create(1);
+  mu_assert("FAIL: test_symbol_KB_create [1]", symbol_get_kind(s) == K_B);
+  mu_assert("FAIL: test_symbol_KB_create [2]", !symbol_is_quoted(s));
+  mu_assert("FAIL: test_symbol_KB_create [3]", symbol_get_value(s) == 1);
+  return NULL;
+}
+
 static char *test_symbol_get_kind() {
+  bytecode s = symbol_KS_create(1, 1);
+  mu_assert("FAIL: test_symbol_get_kind [1]", symbol_get_kind(s) == K_S);
   return NULL;
 }
 
 static char *test_symbol_is_quoted() {
+  bytecode s = symbol_KB_create(1);
+  mu_assert("FAIL: test_symbol_is_quoted [1]", !symbol_is_quoted(s));
   return NULL;
 }
 
 static char *test_symbol_get_opcode() {
+  bytecode s = symbol_KS_create(1, 1);
+  mu_assert("FAIL: test_symbol_get_opcode [1]", symbol_get_opcode(s) == 1);
   return NULL;
 }
 
 static char *test_symbol_get_SNId() {
+  bytecode s = symbol_KR_create(2, 3);
+  mu_assert("FAIL: test_symbol_get_SNId [1]", symbol_get_SNId(s) == 3);
   return NULL;
 }
 
 static char *test_symbol_get_subtask() {
+  bytecode s = symbol_KR_create(2, 3);
+  mu_assert("FAIL: test_symbol_get_subtask [1]", symbol_get_subtask(s) == 2);
   return NULL;
 }
 
 static char *test_symbol_get_nargs() {
+  bytecode s = symbol_KS_create(5, 1);
+  mu_assert("FAIL: test_symbol_get_nargs [1]", symbol_get_nargs(s) == 5);
   return NULL;
 }
 
 static char *test_symbol_get_value() {
+  bytecode s = symbol_KB_create(7);
+  mu_assert("FAIL: test_symbol_get_value [1]", symbol_get_value(s) == 7);
+  return NULL;
+}
+
+static char *test_symbol_set_kind() {
+  bytecode s = symbol_KS_create(1, 1);
+  symbol_set_kind(&s, K_R);
+  mu_assert("FAIL: test_symbol_set_kind [1]", symbol_get_kind(s) == K_R);
+  return NULL;
+}
+
+static char *test_symbol_quote() {
+  bytecode s = symbol_KS_create(1, 1);
+  symbol_quote(&s);
+  mu_assert("FAIL: test_symbol_quote [1]", symbol_is_quoted(s));
+  return NULL;
+}
+
+static char *test_symbol_unquote() {
+  bytecode s = symbol_KS_create(1, 1);
+  symbol_quote(&s);
+  symbol_unquote(&s);
+  mu_assert("FAIL: test_symbol_unquote [1]", !symbol_is_quoted(s));
+  return NULL;
+}
+
+static char *test_symbol_set_opcode() {
+  bytecode s = symbol_KS_create(1, 1);
+  symbol_set_opcode(&s, 5);
+  mu_assert("FAIL: test_symbol_set_opcode [1]", symbol_get_opcode(s) == 5);
+  return NULL;
+}
+
+static char *test_symbol_set_SNId() {
+  bytecode s = symbol_KR_create(2, 3);
+  symbol_set_SNId(&s, 4);
+  mu_assert("FAIL: test_symbol_set_SNId [1]", symbol_get_SNId(s) == 4);
+  return NULL;
+}
+
+static char *test_symbol_set_subtask() {
+  bytecode s = symbol_KR_create(2, 3);
+  symbol_set_subtask(&s, 5);
+  mu_assert("FAIL: test_symbol_set_subtask [1]", symbol_get_subtask(s) == 5);
+  return NULL;
+}
+
+static char *test_symbol_set_nargs() {
+  bytecode s = symbol_KS_create(1, 1);
+  symbol_set_nargs(&s, 3);
+  mu_assert("FAIL: test_symbol_set_nargs [1]", symbol_get_nargs(s) == 3);
+  return NULL;
+}
+
+static char *test_symbol_set_value() {
+  bytecode s = symbol_KB_create(1);
+  symbol_set_value(&s, 10);
+  mu_assert("FAIL: test_symbol_set_value [1]", symbol_get_value(s) == 10);
   return NULL;
 }
 
@@ -517,7 +614,7 @@ static char *all_tests() {
   mu_run_test(test_pkt_set_payload_type);
   mu_run_test(test_pkt_set_payload);
   mu_run_test(test_pkt_create);
-
+  
   mu_run_test(test_q_get_head_index);
   mu_run_test(test_q_get_tail_index);
   mu_run_test(test_q_set_head_index);
@@ -554,6 +651,9 @@ static char *all_tests() {
   mu_run_test(test_subt_pop);
   mu_run_test(test_subt_get_rec);
 
+  mu_run_test(test_symbol_KS_create);
+  mu_run_test(test_symbol_KR_create);
+  mu_run_test(test_symbol_KB_create);
   mu_run_test(test_symbol_get_kind);
   mu_run_test(test_symbol_is_quoted);
   mu_run_test(test_symbol_get_opcode);
@@ -561,6 +661,14 @@ static char *all_tests() {
   mu_run_test(test_symbol_get_subtask);
   mu_run_test(test_symbol_get_nargs);
   mu_run_test(test_symbol_get_value);
+  mu_run_test(test_symbol_set_kind);
+  mu_run_test(test_symbol_quote);
+  mu_run_test(test_symbol_unquote);
+  mu_run_test(test_symbol_set_opcode);
+  mu_run_test(test_symbol_set_SNId);
+  mu_run_test(test_symbol_set_subtask);
+  mu_run_test(test_symbol_set_nargs);
+  mu_run_test(test_symbol_set_value);
   
   return NULL;
 }
