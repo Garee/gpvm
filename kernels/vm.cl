@@ -40,6 +40,12 @@
 #define SUBTREC_STATUS_MASK          0xF0 // 11110000
 #define SUBTREC_STATUS_SHIFT         4
 
+#define SUBTREC_RETURN_AS_ADDR_MASK  0xFF00 // 1111111100000000
+#define SUBTREC_RETURN_AS_ADDR_SHIFT 8
+
+#define SUBTREC_RETURN_AS_POS_MASK   0xFF   // 0000000011111111
+#define SUBTREC_RETURN_AS_POS_SHIFT  0
+
 /* Subtask record status. */
 #define NEW        0
 #define PROCESSING 1
@@ -87,7 +93,10 @@
 /******* Function Prototypes *******/
 /***********************************/
 void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch);
-uint parse_subtask(uint code_addr,
+uint parse_subtask(uint source,
+		   uint arg_pos,
+		   uint subtask,
+		   uint address,
                    __global uint2 *q,
                    int n,
                    __global bytecode *cStore,
@@ -116,6 +125,8 @@ uint subt_rec_get_subt_status(__global subt_rec *r);
 uint subt_rec_get_nargs_absent(__global subt_rec *r);
 uint subt_rec_get_return_to(__global subt_rec *r);
 uint subt_rec_get_return_as(__global subt_rec *r);
+uint subt_rec_get_return_as_addr(__global subt_rec *r);
+uint subt_rec_get_return_as_pos(__global subt_rec *r);
 void subt_rec_set_service_id(__global subt_rec *r, uint service_id);
 void subt_rec_set_arg(__global subt_rec *r, uint arg_pos, uint arg);
 void subt_rec_set_arg_status(__global subt_rec *r, uint arg_pos, uint status);
@@ -123,7 +134,9 @@ void subt_rec_set_subt_status(__global subt_rec *r, uint status);
 void subt_rec_set_nargs_absent(__global subt_rec *r, uint n);
 void subt_rec_set_return_to(__global subt_rec *r, uint return_to);
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
-
+uint subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr);
+uint subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos);
+  
 bytecode symbol_KS_create(uint nargs, uint opcode);
 bytecode symbol_KR_create(uint subtask, uint SNId);
 bytecode symbol_KB_create(uint value);
@@ -213,7 +226,7 @@ bool computation_complete(__global packet *q, int n) {
 
 void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch) {
   uint type = pkt_get_type(p);
-  uint destination = pkt_get_source(p);
+  uint source = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
   uint subtask = pkt_get_sub(p);
   uint address = pkt_get_payload(p);
@@ -222,66 +235,98 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
   case ERROR:
     break;
     
-  case REFERENCE: {
-    uint ref_subtask = parse_subtask(address, q, n, cStore, subt, scratch);
-
+  case REFERENCE:
+    /* Create a new subtask record */
+    uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, scratch);
+    
     if (subt_is_ready(ref_subtask, subt)) {
+      /* Perform the computation. */
       bytecode result = service_compute(subt, ref_subtask, scratch);
       
-      packet p = pkt_create(DATA, destination, arg_pos, subtask, result);
-      destination = get_global_id(0);
-      q_write(p, destination, q, n);
+      /* Create a new packet containing the computation results. */
+      packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, result);
       
+      /* Send the result back to the compute unit that sent the reference request. */
+      q_write(p, source, q, n);
+      
+      /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(ref_subtask, subt);
     }
     break;
-  }
     
   case DATA:
+    /* Store the data in the subtask record. */
     subt_store_payload(address, arg_pos, subtask, subt);
     
     if (subt_is_ready(subtask, subt)) {
+      /* Perform the computation. */
       bytecode result = service_compute(subt, subtask, scratch);
       
-      packet p = pkt_create(DATA, destination, arg_pos, subtask, result);
-      q_write(p, destination, q, n);
+      /* Figure out where to send the result to. */
+      __global subt_rec *rec = subt_get_rec(subtask, subt);
+      uint return_to = subt_rec_get_return_to(rec);
+      uint return_as_addr = subt_rec_get_return_as_addr(rec);
+      uint return_as_pos = subt_rec_get_return_as_pos(rec);
       
+      /* Create and send new packet containing the computation results. */
+      packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
+      q_write(p, return_to, q, n);
+      
+      /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(subtask, subt);
     }
     break;
   }
 }
 
-uint parse_subtask(uint address,
+uint parse_subtask(uint source,
+		   uint arg_pos,
+                   uint subtask,
+                   uint address,
                    __global uint2 *q,
                    int n,
                    __global bytecode *cStore,
                    __global subt *subt,
                    __global char *scratch
                    ) {
-  /* Get a subtask record from the stack */
+  /* Get an available subtask record from the stack */
   ushort av_index;
   while (!subt_pop(&av_index, subt)) {}
   __global subt_rec *rec = subt_get_rec(av_index, subt);
   
+  /* Get the K_S symbol from the code store. */
   bytecode symbol = cStore[address * QUEUE_SIZE];
   
+  /* Create a new subtask record. */
   uint nargs = symbol_get_nargs(symbol);
   uint opcode = symbol_get_opcode(symbol);
+  subt_rec_set_subt_status(rec, NEW);
   subt_rec_set_nargs_absent(rec, nargs);
   subt_rec_set_service_id(rec, opcode);
+  subt_rec_set_return_to(rec, source);
+  subt_rec_set_return_as_addr(rec, subtask);
+  subt_rec_set_return_as_pos(rec, arg_pos);
+
+  /* Begin argument processing */
+  subt_rec_set_subt_status(rec, PROCESSING);
   
   for (int arg_pos = 1; arg_pos < nargs; arg_pos++) {
+    /* Get the next symbol (K_R or K_B) */
     symbol = cStore[(address * QUEUE_SIZE) + arg_pos];
     
     switch (symbol_get_kind(symbol)) {
     case K_R:
-      if (!symbol_is_quoted(symbol)) {
-        uint destination = symbol_get_SNId(symbol); // TODO run-time dest allocation
-        packet p = pkt_create(REFERENCE, destination, arg_pos, av_index, symbol);
-        q_write(p, destination, q, n);
-      } else {
+      if (symbol_is_quoted(symbol)) {
         subt_store_payload(symbol, arg_pos, av_index, subt);
+      } else {
+	/* Create a packet to request a computation. */
+        packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, symbol);
+
+	/* Find out which service should perform the computation. */
+        uint destination = symbol_get_SNId(symbol); // TODO run-time dest allocation
+
+	/* Send the packet and request the computation. */
+        q_write(p, destination, q, n);
       }
       break;
       
@@ -411,6 +456,14 @@ uint subt_rec_get_return_as(__global subt_rec *r) {
   return r->return_as;
 }
 
+uint subt_rec_get_return_as_addr(__global subt_rec *r) {
+  return r->return_as & SUBTREC_RETURN_AS_ADDR_MASK;
+}
+
+uint subt_rec_get_return_as_pos(__global subt_rec *r) {
+  return r->return_as & SUBTREC_RETURN_AS_POS_MASK;
+}
+
 void subt_rec_set_service_id(__global subt_rec *r, uint service_id) {
   r->service_id = service_id;
 }
@@ -439,6 +492,16 @@ void subt_rec_set_return_to(__global subt_rec *r, uint return_to) {
 
 void subt_rec_set_return_as(__global subt_rec *r, uint return_as) {
   r->return_as = return_as;
+}
+
+uint subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr) {
+  r->return_as = (r->return_as & ~SUBTREC_RETURN_AS_ADDR_MASK)
+    | ((return_as_addr << SUBTREC_RETURN_AS_ADDR_SHIFT) & SUBTREC_RETURN_AS_ADDR_MASK);
+}
+
+uint subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos) {
+  r->return_as = (r->return_as & ~SUBTREC_RETURN_AS_POS_MASK)
+    | ((return_as_pos << SUBTREC_RETURN_AS_POS_SHIFT) & SUBTREC_RETURN_AS_POS_MASK);
 }
 
 /**************************/

@@ -85,13 +85,13 @@ int main() {
     int *state = new int;
     *state = WRITE;
     
-    /* The code store. */
+    /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *cStore = new bytecode[CSTORE_SIZE * QUEUE_SIZE];
     
     /* The subtask table. */
     subt *subt = createSubt();
     
-    /* Scratch array for storing temporary results. */
+    /* Each computate unit has its own scratch array for storing temporary results. */
     cl_char *scratch = new cl_char[SCRATCH_SIZE * computeUnits];
     
     /* Create memory buffers on the device. */
