@@ -17,6 +17,14 @@ const char *KERNEL_BUILD_OPTIONS = "-I include";
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 subt *createSubt();
 
+packet pkt_create(uint type, uint source, uint arg, uint sub, uint payload);
+void pkt_set_type(packet *p, uint type);
+void pkt_set_source(packet *p, uint source);
+void pkt_set_arg_pos(packet *p, uint arg);
+void pkt_set_sub(packet *p, uint sub);
+void pkt_set_payload_type(packet *p, uint ptype);
+void pkt_set_payload(packet *p, uint payload);
+
 int main() {
   std::vector<cl::Platform> platforms;
   std::vector<cl::Device> devices;
@@ -24,14 +32,14 @@ int main() {
   cl::Program program;
   
   DeviceInfo dInfo;
-
+  
   try {
     /* Create a vector of available platforms. */
     cl::Platform::get(&platforms);
     
     /* Create a vector of available devices (GPU Priority). */
     try {
-      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
@@ -44,7 +52,7 @@ int main() {
     
     /* Get the number of compute units for the device. */
     int computeUnits = dInfo.max_compute_units(device);
-
+    
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
@@ -58,7 +66,7 @@ int main() {
     
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_BUILD_OPTIONS);
-
+    
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
 
@@ -87,20 +95,31 @@ int main() {
     
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *cStore = new bytecode[CSTORE_SIZE * QUEUE_SIZE];
+
+    /* Populate the code store. */
+    cStore[0] = 0x0000000200000000UL;
+    cStore[1] = 0x6040000000000002UL;
+    cStore[2] = 0x6040000000000002UL;
+    
+    /* Create initial packet. */
+    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
+    queues[nQueues] = p;   // Initial packet.
+    queues[0].x = 1;       // Tail index is 1.
+    queues[0].y = WRITE;   // Last operation is write.
     
     /* The subtask table. */
     subt *subt = createSubt();
     
     /* Each computate unit has its own scratch array for storing temporary results. */
     cl_char *scratch = new cl_char[SCRATCH_SIZE * computeUnits];
-    
+
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
 
     cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), readQueues);
-
+    
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
     
@@ -124,14 +143,14 @@ int main() {
     
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(1);
-
+    
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
       commandQueue.finish();
       toggleState(commandQueue, stateBuffer, state);
     }
-
+    
     /* Read the modified queue buffer. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
     
@@ -179,12 +198,56 @@ subt *createSubt() {
 
   if (table) {
     table->av_recs[0] = 1; // The first element is the top of stack index.
-  
+    
     /* Populate the stack with the available records in the subtask table. */
     for (int i = 1; i < SUBT_SIZE + 1; i++) {
       table->av_recs[i] = i - 1;
     }
   }
-    
+  
   return table;
+}
+
+/* Return a newly created packet. */
+packet pkt_create(uint type, uint source, uint arg, uint sub, uint payload) {
+  packet p;
+  p.x = 0;
+  p.y = 0;
+  pkt_set_type(&p, type);
+  pkt_set_source(&p, source);
+  pkt_set_arg_pos(&p, arg);
+  pkt_set_sub(&p, sub);
+  pkt_set_payload_type(&p, VAL);
+  pkt_set_payload(&p, payload);
+  return p;
+}
+
+/* Set the packet type. */
+void pkt_set_type(packet *p, uint type) {
+  (*p).x = ((*p).x & ~PKT_TYPE_MASK) | ((type << PKT_TYPE_SHIFT) & PKT_TYPE_MASK);
+}
+
+/* Set the packet source address. */
+void pkt_set_source(packet *p, uint source) {
+  (*p).x = ((*p).x & ~PKT_SRC_MASK) | ((source << PKT_SRC_SHIFT) & PKT_SRC_MASK);
+}
+
+/* Set the packet argument position. */
+void pkt_set_arg_pos(packet *p, uint arg) {
+  (*p).x = ((*p).x & ~PKT_ARG_MASK) | ((arg << PKT_ARG_SHIFT) & PKT_ARG_MASK);
+}
+
+/* Set the packet subtask. */
+void pkt_set_sub(packet *p, uint sub) {
+  (*p).x = ((*p).x & ~PKT_SUB_MASK) | ((sub << PKT_SUB_SHIFT) & PKT_SUB_MASK);
+}
+
+/* Set the packet payload type. */
+void pkt_set_payload_type(packet *p, uint ptype) {
+  (*p).x = ((*p).x & ~PKT_PTYPE_MASK) | ((ptype << PKT_PTYPE_SHIFT) & PKT_PTYPE_MASK);
+}
+
+/* Set the packet payload. */
+void pkt_set_payload(packet *p, uint payload) {
+  (*p).y = payload;
 }
