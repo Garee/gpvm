@@ -78,6 +78,8 @@ public:
     infotbl["CL_DEVICE_EXTENSIONS"]=InfoTuple(CL_DEVICE_EXTENSIONS,STRING);
     //infotbl["CL_DEVICE_PLATFORM"]=InfoTuple(CL_DEVICE_PLATFORM,UINT);
   };
+  
+  unsigned long global_mem_size(const cl::Device&);
   unsigned int max_compute_units(const cl::Device&);
   bool isGPU(const cl::Device&);
   bool isCPU(const cl::Device&);

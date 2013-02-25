@@ -37,8 +37,8 @@
 /* Used to access symbol information. */
 
 // 4  :3         :1    :2       :6       :16 2|4                         :32 (8|8|8|8)
-// K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SCLId|SCId|Opcode
-// K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :Name
+// K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SNId|SCLId|SCId|Opcode
+// K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :SNId|SCLId|SCId|Opcode
 // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
 
 #define SYMBOL_KIND_MASK     0xF000000000000000UL // 11110000000000000000000000000000 00000000000000000000000000000000
@@ -53,10 +53,19 @@
 #define SYMBOL_NARGS_MASK    0xF00000000UL        // 00000000000000000000000000001111 00000000000000000000000000000000
 #define SYMBOL_NARGS_SHIFT   32
 
+#define SYMBOL_SERVICE_MASK  0xFFFFFFFFUL         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_SERVICE_SHIFT 0
+
 #define SYMBOL_SNId_MASK     0xFF000000UL         // 00000000000000000000000000000000 11111111000000000000000000000000
 #define SYMBOL_SNId_SHIFT    24
 
-#define SYMBOL_OPCODE_MASK   0xFFFFFFFFUL         // 00000000000000000000000000000000 11111111111111111111111111111111
+#define SYMBOL_SNLId_MASK    0xFF0000UL           // 00000000000000000000000000000000 00000000111111110000000000000000
+#define SYMBOL_SNLId_SHIFT   16
+
+#define SYMBOL_SNCId_MASK    0xFF00UL             // 00000000000000000000000000000000 00000000000000001111111100000000
+#define SYMBOL_SNCId_SHIFT   8
+
+#define SYMBOL_OPCODE_MASK   0xFFUL               // 00000000000000000000000000000000 00000000000000000000000011111111
 #define SYMBOL_OPCODE_SHIFT  0
 
 #define SYMBOL_VALUE_MASK    0xFFFFFFFFUL         // 00000000000000000000000000000000 11111111111111111111111111111111
@@ -78,7 +87,7 @@
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
-void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *data);
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global uint *data);
 uint parse_subtask(uint source,
                    uint arg_pos,
                    uint subtask,
@@ -87,10 +96,10 @@ uint parse_subtask(uint source,
                    int n,
                    __global bytecode *cStore,
                    __global subt *subt,
-                   __global char *data);
-bytecode service_compute(__global subt* subt, uint subtask,__global char *data);
+                   __global uint *data);
+bytecode service_compute(__global subt* subt, uint subtask,__global uint *data);
 bool computation_complete(__global packet *q, int n);
-uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *data);
+uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data);
 
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
@@ -124,21 +133,27 @@ void subt_rec_set_return_as(__global subt_rec *r, uint return_as);
 void subt_rec_set_return_as_addr(__global subt_rec *r, uint return_as_addr);
 void subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos);
 
-bytecode symbol_KS_create(uint nargs, uint opcode);
+bytecode symbol_KS_create(uint nargs, uint SNId, uint SNLId, uint SNCId, uint opcode);
 bytecode symbol_KR_create(uint subtask, uint SNId);
 bytecode symbol_KB_create(uint value);
 uint symbol_get_kind(bytecode s);
 bool symbol_is_quoted(bytecode s);
-uint symbol_get_opcode(bytecode s);
+uint symbol_get_service(bytecode s);
 uint symbol_get_SNId(bytecode s);
+uint symbol_get_SNLId(bytecode s);
+uint symbol_get_SNCId(bytecode s);
+uint symbol_get_opcode(bytecode s);
 uint symbol_get_subtask(bytecode s);
 uint symbol_get_nargs(bytecode s);
 uint symbol_get_value(bytecode s);
 void symbol_set_kind(bytecode *s, ulong kind);
 void symbol_quote(bytecode *s);
 void symbol_unquote(bytecode *s);
-void symbol_set_opcode(bytecode *s, ulong opcode);
+void symbol_set_service(bytecode *s, ulong service);
 void symbol_set_SNId(bytecode *s, ulong SNId);
+void symbol_set_SNLId(bytecode *s, ulong SNLId);
+void symbol_set_SNCId(bytecode *s, ulong SNCId);
+void symbol_set_opcode(bytecode *s, ulong opcode);
 void symbol_set_subtask(bytecode *s, ulong subtask);
 void symbol_set_nargs(bytecode *s, ulong nargs);
 void symbol_set_value(bytecode *s, ulong value);
@@ -179,7 +194,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global int *state,           /* Are we in the READ or WRITE state? */
                  __global bytecode *cStore,     /* The code store. */
                  __global subt *subt,           /* The subtask table. */
-                 __global char *data            /* Data memory for temporary results. */
+                 __global uint *data            /* Data memory for temporary results. */
                  ) {
   if (*state == WRITE) {
     transferRQ(rq, q, n);
@@ -210,7 +225,7 @@ bool computation_complete(__global packet *q, int n) {
   return true;
 }
 
-void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *data) {
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global uint *data) {
   uint type = pkt_get_type(p);
   uint source = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
@@ -225,11 +240,11 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
   case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
-
+    
     if (subt_is_ready(ref_subtask, subt)) {
       /* Perform the computation. */
       bytecode result = service_compute(subt, ref_subtask, data);
-
+      
       /* Create a new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, symbol_get_value(result));
       
@@ -270,7 +285,7 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
       } else {
         pkt_set_payload_type(&p, VAL);
       }
-
+      
       q_write(p, return_to, q, n);
       
       /* Free up the subtask record so that it may be re-used. */
@@ -288,7 +303,7 @@ uint parse_subtask(uint source,
                    int n,
                    __global bytecode *cStore,
                    __global subt *subt,
-                   __global char *data
+                   __global uint *data
                    ) {
   /* Get an available subtask record from the stack */
   ushort av_index;
@@ -300,17 +315,17 @@ uint parse_subtask(uint source,
   
   /* Create a new subtask record. */
   uint nargs = symbol_get_nargs(symbol);
-  uint opcode = symbol_get_opcode(symbol);
+  uint service = symbol_get_service(symbol);
   subt_rec_set_subt_status(rec, NEW);
   subt_rec_set_nargs_absent(rec, nargs);
-  subt_rec_set_service_id(rec, opcode);
+  subt_rec_set_service_id(rec, service);
   subt_rec_set_return_to(rec, source);
   subt_rec_set_return_as_addr(rec, subtask);
   subt_rec_set_return_as_pos(rec, arg_pos);
   
   /* Begin argument processing */
   subt_rec_set_subt_status(rec, PROCESSING);
-
+  
   for (int arg_pos = 1; arg_pos < nargs; arg_pos++) {
     /* Mark argument as absent. */
     subt_rec_set_arg_status(rec, arg_pos, ABSENT);
@@ -325,9 +340,9 @@ uint parse_subtask(uint source,
       } else {
         /* Create a packet to request a computation. */
         packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, symbol);
-
+	
         /* Find out which service should perform the computation. */
-        uint destination = symbol_get_SNId(symbol); // TODO run-time dest allocation
+        uint destination = symbol_get_SNId(symbol);
 	
         /* Send the packet and request the computation. */
         q_write(p, destination, q, n);
@@ -342,19 +357,19 @@ uint parse_subtask(uint source,
       break;
     }
   }
-
+  
   return av_index;
 }
 
-bytecode service_compute(__global subt* subt, uint subtask, __global char *data) {
+bytecode service_compute(__global subt* subt, uint subtask, __global uint *data) {
   /* Get the opcode */
   __global subt_rec *rec = subt_get_rec(subtask, subt);
-  uint opcode = subt_rec_get_service_id(rec);
-
-  uint library = opcode >> 24; // SCLId
-  uint class = (opcode & 0xFF0000) >> 16; // SCId
-  uint method = opcode & 0xFFFF; // Method is last 16 bits?
-
+  uint service = subt_rec_get_service_id(rec);
+  
+  uint library = symbol_get_SNLId(service);
+  uint class = symbol_get_SNCId(service);
+  uint method = symbol_get_opcode(service);
+  
   uint result = 0;
   switch (class) {
   case ALU:
@@ -381,14 +396,14 @@ bytecode service_compute(__global subt* subt, uint subtask, __global char *data)
   return SYMBOL_KB_ZERO + result;
 }
 
-uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *data) {
+uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data) {
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint value = symbol_get_value(symbol);
   
   if (symbol_get_kind(symbol) == K_P) { // It's a pointer.
     // return data[get_global_id(0) * DATA_SIZE + value];
   }
-
+  
   /* It's a constant. */
   return value;
 }
@@ -399,7 +414,7 @@ uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *data) {
 
 void subt_store_payload(uint payload, uint payload_type, uint arg_pos, ushort i, __global subt *subt) {
   __global subt_rec *rec = subt_get_rec(i, subt);
-
+  
   if (payload_type == PTR) {
     subt_rec_set_arg(rec, arg_pos, SYMBOL_KP_ZERO + payload);
   } else {
@@ -555,28 +570,31 @@ void subt_rec_set_return_as_pos(__global subt_rec *r, uint return_as_pos) {
 /**** Symbol Functions ****/
 /**************************/
 
-bytecode symbol_KS_create(uint nargs, uint opcode) {
+bytecode symbol_KS_create(uint nargs, uint SNId, uint SNLId, uint SNCId, uint opcode) {
   bytecode s = 0;
   symbol_set_kind(&s, K_S);
   symbol_unquote(&s);
   symbol_set_nargs(&s, nargs);
+  symbol_set_SNId(&s, SNId);
+  symbol_set_SNLId(&s, SNLId);
+  symbol_set_SNCId(&s, SNCId);
   symbol_set_opcode(&s, opcode);
   return s;
 }
 
-bytecode symbol_KR_create(uint subtask, uint SNId) {
+bytecode symbol_KR_create(uint subtask, uint name) {
   bytecode s = 0;
   symbol_set_kind(&s, K_R);
   symbol_unquote(&s);
   symbol_set_subtask(&s, subtask);
-  symbol_set_SNId(&s, SNId);
+  symbol_set_value(&s, name);
   return s;
 }
 
 bytecode symbol_KB_create(uint value) {
   bytecode s = 0;
   symbol_set_kind(&s, K_B);
-  symbol_unquote(&s);
+  symbol_quote(&s);
   symbol_set_value(&s, value);
   return s;
 }
@@ -591,14 +609,29 @@ bool symbol_is_quoted(bytecode s) {
   return (s & SYMBOL_QUOTED_MASK) >> SYMBOL_QUOTED_SHIFT;
 }
 
+/* Return the symbol (K_S) service. */
+uint symbol_get_service(bytecode s) {
+  return (s & SYMBOL_SERVICE_MASK) >> SYMBOL_SERVICE_SHIFT;
+}
+
+/* Return the symbol (K_S) SNId. */
+uint symbol_get_SNId(bytecode s) {
+  return (s & SYMBOL_SNId_MASK) >> SYMBOL_SNId_SHIFT;
+}
+
+/* Return the symbol (K_S) SNLId. */
+uint symbol_get_SNLId(bytecode s) {
+  return (s & SYMBOL_SNLId_MASK) >> SYMBOL_SNLId_SHIFT;
+}
+
+/* Return the symbol (K_S) SNCId. */
+uint symbol_get_SNCId(bytecode s) {
+  return (s & SYMBOL_SNCId_MASK) >> SYMBOL_SNCId_SHIFT;
+}
+
 /* Return the symbol (K_S) opcode. */
 uint symbol_get_opcode(bytecode s) {
   return (s & SYMBOL_OPCODE_MASK) >> SYMBOL_OPCODE_SHIFT;
-}
-
-/* Return the symbol (K_R) SNId. */
-uint symbol_get_SNId(bytecode s) {
-  return (s & SYMBOL_SNId_MASK) >> SYMBOL_SNId_SHIFT;
 }
 
 /* Return the symbol (K_R) subtask. */
@@ -628,12 +661,24 @@ void symbol_unquote(bytecode *s) {
   *s = ((*s) & ~SYMBOL_QUOTED_MASK) | ((0UL << SYMBOL_QUOTED_SHIFT) & SYMBOL_QUOTED_MASK);
 }
 
-void symbol_set_opcode(bytecode *s, ulong opcode) {
-  *s = ((*s) & ~SYMBOL_OPCODE_MASK) | ((opcode << SYMBOL_OPCODE_SHIFT) & SYMBOL_OPCODE_MASK);
+void symbol_set_service(bytecode *s, ulong service) {
+  *s = ((*s) & ~SYMBOL_SERVICE_MASK) | ((service << SYMBOL_SERVICE_SHIFT) & SYMBOL_SERVICE_MASK);
 }
 
 void symbol_set_SNId(bytecode *s, ulong SNId) {
   *s = ((*s) & ~SYMBOL_SNId_MASK) | ((SNId << SYMBOL_SNId_SHIFT) & SYMBOL_SNId_MASK);
+}
+
+void symbol_set_SNLId(bytecode *s, ulong SNLId) {
+  *s = ((*s) & ~SYMBOL_SNLId_MASK) | ((SNLId << SYMBOL_SNLId_SHIFT) & SYMBOL_SNLId_MASK);
+}
+
+void symbol_set_SNCId(bytecode *s, ulong SNCId) {
+  *s = ((*s) & ~SYMBOL_SNCId_MASK) | ((SNCId << SYMBOL_SNCId_SHIFT) & SYMBOL_SNCId_MASK);
+}
+
+void symbol_set_opcode(bytecode *s, ulong opcode) {
+  *s = ((*s) & ~SYMBOL_OPCODE_MASK) | ((opcode << SYMBOL_OPCODE_SHIFT) & SYMBOL_OPCODE_MASK);
 }
 
 void symbol_set_subtask(bytecode *s, ulong subtask) {

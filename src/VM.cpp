@@ -49,9 +49,12 @@ int main() {
     /* Get the number of compute units for the device. */
     int computeUnits = dInfo.max_compute_units(device);
     
+    /* Get the global memory size (in bytes) of the device. */
+    // long globalMemSize = dInfo.global_mem_size(device);
+    
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
-
+    
     /* Read the kernel program source. */
     std::ifstream kernelSourceFile(KERNEL_FILE);
     std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), (std::istreambuf_iterator<char>()));
@@ -65,7 +68,7 @@ int main() {
     
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
-
+    
     /* Calculate the number of queues we need. */
     int nQueues = computeUnits * computeUnits;
     
@@ -91,8 +94,8 @@ int main() {
     
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *cStore = new bytecode[CSTORE_SIZE * QUEUE_SIZE];
-
-    /* Populate the code store. */
+    
+    /* TODO: Populate the code store. */
     cStore[0] = 0x0000000200000000UL;
     cStore[1] = 0x6040000000000002UL;
     cStore[2] = 0x6040000000000002UL;
@@ -106,8 +109,13 @@ int main() {
     /* The subtask table. */
     subt *subt = createSubt();
     
-    /* Each computate unit has its own data array for storing temporary results. */
-    cl_char *data = new cl_char[DATA_SIZE * computeUnits];
+    /* TODO: Read input data. */
+    long inputSize = 0;
+    
+    /* Each computate unit has its own data array for storing temporary results. [input][data] */
+    cl_uint *data = new cl_uint[inputSize + (DATA_SIZE * computeUnits)];
+    
+    /* TODO: Write input data to data buffer. */
     
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
@@ -125,8 +133,8 @@ int main() {
     cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
     
-    cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, DATA_SIZE * sizeof(cl_char) * computeUnits);
-    commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, DATA_SIZE * sizeof(cl_char) * computeUnits, data);
+    cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, DATA_SIZE * sizeof(cl_uint) * computeUnits);
+    commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, DATA_SIZE * sizeof(cl_uint) * computeUnits, data);
     
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);

@@ -3,7 +3,7 @@
 void DeviceInfo::show(const cl::Device& device) {
   cl_int err=CL_SUCCESS;
   std::cout << "\nDevice Info:"<< std::endl;
-
+  
   for (std::map<std::string,InfoTuple>::reverse_iterator iter_=infotbl.rbegin(); iter_!=infotbl.rend();iter_++) {
     // for (std::map<std::string,InfoTuple>::iterator iter_=infotbl.begin(); iter_!=infotbl.end();iter_++) {
     std::string infostr = (*iter_).first;
@@ -31,6 +31,12 @@ void DeviceInfo::show(const cl::Device& device) {
   }
   std::cout << std::endl;
   
+}
+
+unsigned long DeviceInfo::global_mem_size(const cl::Device& device) {
+  cl_ulong info;
+  device.getInfo(infotbl["CL_DEVICE_GLOBAL_MEM_SIZE"].infocode,&info);
+  return info;
 }
 
 unsigned int DeviceInfo::max_compute_units(const cl::Device& device) {
