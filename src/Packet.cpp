@@ -15,7 +15,7 @@ packet pkt_create(uint type, uint source, uint arg, uint sub, uint payload) {
   pkt_set_source(&p, source);
   pkt_set_arg_pos(&p, arg);
   pkt_set_sub(&p, sub);
-  pkt_set_payload_type(&p, VAL);
+  pkt_set_payload_type(&p, 0);
   pkt_set_payload(&p, payload);
   return p;
 }

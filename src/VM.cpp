@@ -103,7 +103,7 @@ int main() {
     /* Create initial packet. */
     packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
     queues[nQueues] = p;   // Initial packet.
-    queues[0].x = 1;       // Tail index is 1.
+    queues[0].x = 1 << 16; // Tail index is 1.
     queues[0].y = WRITE;   // Last operation is write.
     
     /* The subtask table. */

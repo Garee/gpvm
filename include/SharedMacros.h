@@ -32,8 +32,4 @@
 #define REFERENCE 1
 #define DATA      2
 
-/* Definition of packet payload types. */
-#define VAL 0 // The payload is the value.
-#define PTR 1 // The payload is a pointer to the value.
-
 #endif
