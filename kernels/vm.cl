@@ -66,7 +66,7 @@
 #define K_S 0 // Contains information needed to create subtask record.
 #define K_R 4 // Reference symbol.
 #define K_B 6 // Data symbol.
-#define K_P 8 // Contains a pointer to scratch memory.
+#define K_P 8 // Contains a pointer to data memory.
 
 /* Definition of computation class types - Placeholders */
 #define ALU 0
@@ -78,7 +78,7 @@
 /***********************************/
 /******* Function Prototypes *******/
 /***********************************/
-void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch);
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *data);
 uint parse_subtask(uint source,
                    uint arg_pos,
                    uint subtask,
@@ -87,10 +87,10 @@ uint parse_subtask(uint source,
                    int n,
                    __global bytecode *cStore,
                    __global subt *subt,
-                   __global char *scratch);
-bytecode service_compute(__global subt* subt, uint subtask,__global char *scratch);
+                   __global char *data);
+bytecode service_compute(__global subt* subt, uint subtask,__global char *data);
 bool computation_complete(__global packet *q, int n);
-uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *scratch);
+uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *data);
 
 void transferRQ(__global uint2 *rq,  __global uint2 *q, int n);
 
@@ -179,7 +179,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  __global int *state,           /* Are we in the READ or WRITE state? */
                  __global bytecode *cStore,     /* The code store. */
                  __global subt *subt,           /* The subtask table. */
-                 __global char *scratch         /* Scratch memory for temporary results. */
+                 __global char *data            /* Data memory for temporary results. */
                  ) {
   if (*state == WRITE) {
     transferRQ(rq, q, n);
@@ -190,7 +190,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
     for (int i = 0; i < n; i++) {
       packet p;
       while (q_read(&p, i, q, n)) {
-        parse_pkt(p, rq, n, cStore, subt, scratch);
+        parse_pkt(p, rq, n, cStore, subt, data);
       }
     }
   }
@@ -210,7 +210,7 @@ bool computation_complete(__global packet *q, int n) {
   return true;
 }
 
-void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *scratch) {
+void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __global subt *subt, __global char *data) {
   uint type = pkt_get_type(p);
   uint source = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
@@ -224,11 +224,11 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
     
   case REFERENCE: {
     /* Create a new subtask record */
-    uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, scratch);
+    uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
 
     if (subt_is_ready(ref_subtask, subt)) {
       /* Perform the computation. */
-      bytecode result = service_compute(subt, ref_subtask, scratch);
+      bytecode result = service_compute(subt, ref_subtask, data);
 
       /* Create a new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, symbol_get_value(result));
@@ -254,7 +254,7 @@ void parse_pkt(packet p, __global uint2 *q, int n, __global bytecode *cStore, __
 
     if (subt_is_ready(subtask, subt)) {
       /* Perform the computation. */
-      bytecode result = service_compute(subt, subtask, scratch);
+      bytecode result = service_compute(subt, subtask, data);
 
       /* Figure out where to send the result to. */
       __global subt_rec *rec = subt_get_rec(subtask, subt);
@@ -288,7 +288,7 @@ uint parse_subtask(uint source,
                    int n,
                    __global bytecode *cStore,
                    __global subt *subt,
-                   __global char *scratch
+                   __global char *data
                    ) {
   /* Get an available subtask record from the stack */
   ushort av_index;
@@ -346,7 +346,7 @@ uint parse_subtask(uint source,
   return av_index;
 }
 
-bytecode service_compute(__global subt* subt, uint subtask, __global char *scratch) {
+bytecode service_compute(__global subt* subt, uint subtask, __global char *data) {
   /* Get the opcode */
   __global subt_rec *rec = subt_get_rec(subtask, subt);
   uint opcode = subt_rec_get_service_id(rec);
@@ -360,15 +360,15 @@ bytecode service_compute(__global subt* subt, uint subtask, __global char *scrat
   case ALU:
     switch (method) {
     case ADD: {
-      uint arg1 = get_arg_value(0, rec, scratch);
-      uint arg2 = get_arg_value(1, rec, scratch);
+      uint arg1 = get_arg_value(0, rec, data);
+      uint arg2 = get_arg_value(1, rec, data);
       result = arg1 + arg2;
       break;
     }
       
     case SUB: {
-      uint arg1 = get_arg_value(0, rec, scratch);
-      uint arg2 = get_arg_value(1, rec, scratch);
+      uint arg1 = get_arg_value(0, rec, data);
+      uint arg2 = get_arg_value(1, rec, data);
       result = arg1 - arg2;
       break;
     }
@@ -377,16 +377,16 @@ bytecode service_compute(__global subt* subt, uint subtask, __global char *scrat
     break;
   }
   
-  // If result written to scratch, return K_P symbol otherwise K_B.
+  // If result written to data, return K_P symbol otherwise K_B.
   return SYMBOL_KB_ZERO + result;
 }
 
-uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *scratch) {
+uint get_arg_value(uint arg_pos, __global subt_rec *rec, __global char *data) {
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint value = symbol_get_value(symbol);
   
   if (symbol_get_kind(symbol) == K_P) { // It's a pointer.
-    // return scratch[get_global_id(0) * SCRATCH_SIZE + value];
+    // return data[get_global_id(0) * DATA_SIZE + value];
   }
 
   /* It's a constant. */

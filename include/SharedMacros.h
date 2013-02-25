@@ -9,9 +9,7 @@
 #define WRITE 1
 #define CSTORE_SIZE (256 * QUEUE_SIZE)
 #define SUBT_SIZE 1024
-#define IN_SIZE 65535
-#define RESULT_SIZE 65535
-#define SCRATCH_SIZE 65535
+#define DATA_SIZE 65535
 
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011
