@@ -199,7 +199,7 @@ void printB(int n) {
       printf("1");
     else
       printf("0");
-
+    
     n >>= 1;
   }
   printf("\n");
@@ -252,11 +252,11 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
   uint subtask = pkt_get_sub(p);
   uint payload_type = pkt_get_payload_type(p);
   uint address = pkt_get_payload(p);
-
+  
   switch (type) {
   case ERROR:
     break;
-
+    
   case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
@@ -276,7 +276,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     }
     break;
   }
-
+    
   case DATA:
     /* Store the data in the subtask record. */
     subt_store_symbol(SYMBOL_KP_ZERO + address, arg_pos, subtask, subt);
@@ -312,16 +312,14 @@ uint parse_subtask(uint source,
                    __global subt *subt,
                    __global uint *data
                    ) {
-
   /* Get an available subtask record from the stack */
-
   ushort av_index;
   while (!subt_pop(&av_index, subt)) {}
   __global subt_rec *rec = subt_get_rec(av_index, subt);
 
   /* Get the K_S symbol from the code store. */
   bytecode symbol = cStore[address * QUEUE_SIZE];
-
+  
   /* Create a new subtask record. */
   uint service = symbol_get_service(symbol);
   uint nargs = symbol_get_nargs(symbol);
@@ -335,12 +333,12 @@ uint parse_subtask(uint source,
   /* Begin argument processing */
   subt_rec_set_subt_status(rec, PROCESSING);
 
-  for (int arg_pos = 1; arg_pos < nargs; arg_pos++) {
+  for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
     /* Mark argument as absent. */
     subt_rec_set_arg_status(rec, arg_pos, ABSENT);
     
     /* Get the next symbol (K_R or K_B) */
-    symbol = cStore[(address * QUEUE_SIZE) + arg_pos];
+    symbol = cStore[(address * QUEUE_SIZE) + arg_pos + 1];
     
     switch (symbol_get_kind(symbol)) {
     case K_R:
@@ -367,7 +365,7 @@ uint parse_subtask(uint source,
       break;
     }
   }
-
+  
   return av_index;
 }
 
@@ -379,13 +377,19 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   uint library = symbol_get_SNLId(service);
   uint class = symbol_get_SNCId(service);
   uint method = symbol_get_opcode(service);
-
+  
   switch (class) {
   case ALU:
     switch (method) {
     case ADD: {
-      __global void *arg1 = get_arg_value(0, rec, data);
-      break;
+      __global int *arg1 = get_arg_value(0, rec, data);
+      __global int *arg2 = get_arg_value(1, rec, data);
+      int result = (*arg1) + (*arg2);
+      
+      /* TODO: Allocate space on data buffer for result. */
+      uint av_index = 0;
+      data[av_index] = result;
+      return av_index;
     }
       
     }
@@ -398,14 +402,24 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
 __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data) {
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint value = symbol_get_value(symbol);
-  
+
   if (symbol_get_kind(symbol) == K_B) {
     /* TODO: Locate free space on data buffer for argument value. */
     uint av_index = 0;
     data[av_index] = value;
     return data + av_index;
+  } else if (symbol_get_kind(symbol) == K_R) {
+    /* Request the computation?
+       
+    uint address = symbol_get_address(symbol);
+    packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, address);
+    uint destination = symbol_get_SNId(symbol);
+    q_write(p, destination, q, n);
+    subt_rec_set_arg_status(rec, arg_pos, REQUESTING);
+    */
   }
-  
+
+  // K_P symbol - Value is a pointer, actual arg in data buffer.
   return data + ((get_global_id(0) * DATA_SIZE) + value);
 }
 
