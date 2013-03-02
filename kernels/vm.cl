@@ -184,27 +184,6 @@ void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload_type(packet *p, uint ptype);
 void pkt_set_payload(packet *p, uint payload);
 
-void printQ(__global packet *q, int n) {
-  for (int i = 0; i < n*n; i++) {
-    int x = ((q[i].x & 0xFFFF0000) >> 16);
-    int y = q[i].x & 0xFFFF;
-    printf("(%d, %d, %d) ", x, y, q[i].y);
-  }
-  printf("\n\n");
-}
-
-void printB(int n) {
-  while (n) {
-    if (n & 1)
-      printf("1");
-    else
-      printf("0");
-    
-    n >>= 1;
-  }
-  printf("\n");
-}
-
 /**************************/
 /******* The Kernel *******/
 /**************************/
@@ -260,7 +239,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
   case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
-    
+
     if (subt_is_ready(ref_subtask, subt)) {
       /* Perform the computation. */
       uint result = service_compute(subt, ref_subtask, data);
@@ -332,7 +311,7 @@ uint parse_subtask(uint source,
   
   /* Begin argument processing */
   subt_rec_set_subt_status(rec, PROCESSING);
-
+  
   for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
     /* Mark argument as absent. */
     subt_rec_set_arg_status(rec, arg_pos, ABSENT);
@@ -418,7 +397,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
     subt_rec_set_arg_status(rec, arg_pos, REQUESTING);
     */
   }
-
+  
   // K_P symbol - Value is a pointer, actual arg in data buffer.
   return data + ((get_global_id(0) * DATA_SIZE) + value);
 }
@@ -452,7 +431,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -464,7 +443,7 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
@@ -882,4 +861,26 @@ void pkt_set_payload_type(packet *p, uint ptype) {
 /* Set the packet payload. */
 void pkt_set_payload(packet *p, uint payload) {
   (*p).y = payload;
+}
+
+/* Debug functions. */
+void printQ(__global packet *q, int n) {
+  for (int i = 0; i < n*n; i++) {
+    int x = ((q[i].x & 0xFFFF0000) >> 16);
+    int y = q[i].x & 0xFFFF;
+    printf("(%d, %d, %d) ", x, y, q[i].y);
+  }
+  printf("\n\n");
+}
+
+void printB(int n) {
+  while (n) {
+    if (n & 1)
+      printf("1");
+    else
+      printf("0");
+    
+    n >>= 1;
+  }
+  printf("\n");
 }

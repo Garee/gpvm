@@ -13,7 +13,7 @@
 
 const char *KERNEL_NAME = "vm";
 const char *KERNEL_FILE = "kernels/vm.cl";
-const char *KERNEL_BUILD_OPTIONS = "-I include";
+const char *KERNEL_BUILD_OPTIONS = "-g -I include";
 
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 subt *createSubt();
@@ -24,7 +24,7 @@ int main() {
   cl::Device device;
   cl::Program program;
   
-  DeviceInfo dInfo;
+  DeviceInfo deviceInfo;
   
   try {
     /* Create a vector of available platforms. */
@@ -40,7 +40,7 @@ int main() {
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
-
+    
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
     
@@ -48,10 +48,10 @@ int main() {
     device = devices[0];
     
     /* Get the number of compute units for the device. */
-    int computeUnits = dInfo.max_compute_units(device);
+    int computeUnits = deviceInfo.max_compute_units(device);
     
     /* Get the global memory size (in bytes) of the device. */
-    // long globalMemSize = dInfo.global_mem_size(device);
+    // long globalMemSize = deviceInfo.global_mem_size(device);
     
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
@@ -94,12 +94,12 @@ int main() {
     *state = WRITE;
     
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
-    bytecode *cStore = new bytecode[CSTORE_SIZE * QUEUE_SIZE];
+    bytecode *codeStore = new bytecode[CODE_STORE_SIZE * QUEUE_SIZE];
     
     /* TODO: Populate the code store. */
-    cStore[0] = 0x0000000200000000UL;
-    cStore[1] = 0x6040000000000002UL;
-    cStore[2] = 0x6040000000000002UL;
+    codeStore[0] = 0x0000000200000000UL;
+    codeStore[1] = 0x6040000000000002UL;
+    codeStore[2] = 0x6040000000000002UL;
     
     /* Create initial packet. */
     packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
@@ -108,7 +108,7 @@ int main() {
     queues[0].y = WRITE;   // Last operation is write.
     
     /* The subtask table. */
-    subt *subt = createSubt();
+    subt *subtaskTable = createSubt();
     
     /* TODO: Read input data. */
     long inputSize = 0;
@@ -128,11 +128,11 @@ int main() {
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
     
-    cl::Buffer cStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CSTORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
-    commandQueue.enqueueWriteBuffer(cStoreBuffer, CL_TRUE, 0, CSTORE_SIZE * QUEUE_SIZE * sizeof(bytecode), cStore);
+    cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
+    commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
     
-    cl::Buffer subtBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
-    commandQueue.enqueueWriteBuffer(subtBuffer, CL_TRUE, 0, sizeof(subt), subt);
+    cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
+    commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
     
     cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, DATA_SIZE * sizeof(cl_uint) * computeUnits);
     commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, DATA_SIZE * sizeof(cl_uint) * computeUnits, data);
@@ -142,8 +142,8 @@ int main() {
     kernel.setArg(1, rqBuffer);
     kernel.setArg(2, computeUnits);
     kernel.setArg(3, stateBuffer);
-    kernel.setArg(4, cStoreBuffer);
-    kernel.setArg(5, subtBuffer);
+    kernel.setArg(4, codeStoreBuffer);
+    kernel.setArg(5, subtaskTableBuffer);
     kernel.setArg(6, dataBuffer);
     
     /* Set the NDRange. */
@@ -178,9 +178,9 @@ int main() {
     /* Cleanup */
     delete[] queues;
     delete[] readQueues;
-    delete[] cStore;
+    delete[] codeStore;
     delete[] data;
-    delete subt;
+    delete subtaskTable;
     delete state;
   } catch (cl::Error error) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;

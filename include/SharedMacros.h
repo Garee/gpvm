@@ -7,7 +7,7 @@
 #define COMPLETE -1
 #define READ 0
 #define WRITE 1
-#define CSTORE_SIZE (256 * QUEUE_SIZE)
+#define CODE_STORE_SIZE (256 * QUEUE_SIZE)
 #define SUBT_SIZE 1024
 #define DATA_SIZE 65535
 
