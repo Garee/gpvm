@@ -1,0 +1,15 @@
+
+--- # SBA Core Library Configuration
+System:
+  Version: 3.0
+  Library: OclGannet
+     
+  Services: # last value is control bit (1=control, 0=computational)
+    MEM: [ 1, ls_MEM, 1 ]
+    MAT: [ 2, ls_MAT, 1 ]
+    LET: [ 2, ls_LET, 1 ]
+      
+  ServiceClasses:
+    MEM: [ ptr, const ]
+    LET: [ assign, buf ]
+    MAT: [ mult, add, sub, unit, det, trans ] 

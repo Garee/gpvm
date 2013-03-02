@@ -2,6 +2,7 @@
 #define _IN_HOST
 
 #include <CL/cl.hpp>
+#include <unistd.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -17,6 +18,13 @@ const char *KERNEL_BUILD_OPTIONS = "-g -I include";
 
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 subt *createSubt();
+
+size_t getTotalSystemMemory()
+{
+    long pages = sysconf(_SC_PHYS_PAGES);
+    long page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
+}
 
 int main() {
   std::vector<cl::Platform> platforms;
@@ -52,6 +60,7 @@ int main() {
     
     /* Get the global memory size (in bytes) of the device. */
     // long globalMemSize = deviceInfo.global_mem_size(device);
+    
     
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
@@ -95,11 +104,26 @@ int main() {
     
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *codeStore = new bytecode[CODE_STORE_SIZE * QUEUE_SIZE];
+
+    // 4  :3         :1    :2       :6       :16 2|4                         :32 (8|8|8|8)
+    // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SNId|SCLId|SCId|Opcode
+    // K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :SNId|SCLId|SCId|Opcode
+    // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
     
-    /* TODO: Populate the code store. */
-    codeStore[0] = 0x0000000200000000UL;
-    codeStore[1] = 0x6040000000000002UL;
-    codeStore[2] = 0x6040000000000002UL;
+    /* Populate the code store. */
+    codeStore[0] = 0x0000000300000000UL;
+    codeStore[1] = 0x4000000100000000UL;
+    codeStore[2] = 0x4000000200000000UL;
+    codeStore[3] = 0x4000000300000000UL;
+    
+    codeStore[16] = 0x0000000100000100UL;
+    codeStore[17] = 0x6040000000000000UL;
+    
+    codeStore[32] = 0x0000000100000100UL;
+    codeStore[33] = 0x6040000000000001UL;
+    
+    codeStore[48] = 0x0000000100000100UL;
+    codeStore[49] = 0x6040000000000002UL;
     
     /* Create initial packet. */
     packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
@@ -110,18 +134,29 @@ int main() {
     /* The subtask table. */
     subt *subtaskTable = createSubt();
     
-    /* TODO: Read input data. */
-    long inputSize = 0;
+    long avGlobalMemSize = 1024 * 1024 * 1024; // In bytes.
+    long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
     
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
-    cl_uint *data = new cl_uint[inputSize + (DATA_SIZE * computeUnits)];
+    cl_uint *data = new cl_uint[avGlobalMemSize];
     
-    /* TODO: Write input data to data buffer. */
+    /* Write input data to data buffer. */
     
+    /* :1        :255            :X        :Y
+       nargs     narg0..nargN    in/out    scratch */
+    data[0] = 3; 
+    data[1] = 256; 
+    data[2] = 256 + 1;
+    data[3] = 256 + 2;
+    data[data[0] + 1] = 256 + 3;
+    
+    data[256] = 1;
+    data[256 + 1] = 3;
+        
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
-
+    
     cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), readQueues);
     
@@ -134,8 +169,8 @@ int main() {
     cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
     
-    cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, DATA_SIZE * sizeof(cl_uint) * computeUnits);
-    commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, DATA_SIZE * sizeof(cl_uint) * computeUnits, data);
+    cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, dataSize * sizeof(cl_uint));
+    commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
     
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);

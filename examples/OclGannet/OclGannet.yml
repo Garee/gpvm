@@ -1,0 +1,30 @@
+
+--- # Core Services Configuration
+System:
+  Version: 3.0
+  Libraries: [OclGannet]
+  NServiceNodes: 6 # excluding gateway; this is actually the number of threads
+  ServiceNodes:
+    c1: [ 1, [OclGannet.MEM] ]
+    c2: [ 2, [OclGannet.MAT ] ]
+    c3: [ 3, [OclGannet.MAT ] ]
+    c4: [ 4, [OclGannet.MAT ] ]
+    c5: [ 5, [OclGannet.MAT ] ]
+    c6: [ 6, [OclGannet.MAT ] ]
+  Aliases:
+  # Alias Name (case sensitive): FQN
+    ptr: c1.OclGannet.MEM.ptr
+    const: c1.OclGannet.MEM.const
+    assign: c1.OclGannet.LET.assign
+    buf: c1.OclGannet.LET.buf
+#    lambda: beta.OclGannet.APPLY.lambda
+    '+': c2.OclGannet.MAT.add
+    '-': c3.OclGannet.MAT.sub
+    '*': c4.OclGannet.MAT.mult
+    'T': c5.OclGannet.MAT.trans
+    'U': c6.OclGannet.MAT.unit
+#    '<': a.OclGannet.MAT.lt
+#    '>': a.OclGannet.MAT.gt
+#    '==': a.OclGannet.MAT.eq
+#    '!': a.OclGannet.MAT.not
+

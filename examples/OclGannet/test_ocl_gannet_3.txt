@@ -1,0 +1,41 @@
+Found YAML-file OclGannet.yml
+
+; Gannet packet list
+
+NPackets: 4
+========
+code:0:0:3:c2.OclGannet.MAT.add:gateway
+0:9: : :0:0:0
+R:0: : :1:1:c2.OclGannet.MAT.add
+------------
+S:0: : :1:1:c2.OclGannet.MAT.add
+R:0: : :1:2:c6.OclGannet.MAT.unit
+R:0: : :1:3:c4.OclGannet.MAT.mult
+
+========
+code:0:0:3:c6.OclGannet.MAT.unit:gateway
+0:9: : :0:0:0
+R:0: : :1:2:c6.OclGannet.MAT.unit
+------------
+S:0: : :1:2:c6.OclGannet.MAT.unit
+B:1: :Q:1:2:3074
+B:1: :Q:1:2:1024
+
+========
+code:0:0:5:c4.OclGannet.MAT.mult:gateway
+0:9: : :0:0:0
+R:0: : :1:3:c4.OclGannet.MAT.mult
+------------
+S:0: : :1:3:c4.OclGannet.MAT.mult
+B:1: :Q:1:3:1
+B:1: :Q:1:3:1025
+B:1: :Q:1:3:2049
+B:1: :Q:1:3:1024
+
+========
+reference:0:0:1:c2.OclGannet.MAT.add:gateway
+0:9: : :0:0:0
+R:0: : :1:1:c2.OclGannet.MAT.add
+------------
+R:0: : :1:1:c2.OclGannet.MAT.add
+
