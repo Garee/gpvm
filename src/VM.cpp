@@ -19,8 +19,7 @@ const char *KERNEL_BUILD_OPTIONS = "-g -I include";
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 subt *createSubt();
 
-size_t getTotalSystemMemory()
-{
+size_t getTotalSystemMemory() {
     long pages = sysconf(_SC_PHYS_PAGES);
     long page_size = sysconf(_SC_PAGE_SIZE);
     return pages * page_size;
@@ -182,7 +181,7 @@ int main() {
     kernel.setArg(6, dataBuffer);
     
     /* Set the NDRange. */
-    cl::NDRange global(computeUnits), local(1);
+    cl::NDRange global(computeUnits), local(computeUnits);
     
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
@@ -191,8 +190,10 @@ int main() {
       toggleState(commandQueue, stateBuffer, state);
     }
     
-    /* Read the modified queue buffer. */
+    /* Read the modified buffers. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
+    commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
+    
     
     /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {
@@ -209,6 +210,8 @@ int main() {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
+
+    std::cout << "Result: " << data[258] << std::endl;
     
     /* Cleanup */
     delete[] queues;

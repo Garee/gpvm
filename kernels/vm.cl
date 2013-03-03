@@ -104,7 +104,7 @@ uint parse_subtask(uint source,
 uint service_compute(__global subt* subt, uint subtask,__global uint *data);
 bool computation_complete(__global packet *q, int n);
 __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data);
-uint *get_arg_const_value(uint arg_pos, __global subt_rec *rec);
+uint get_arg_const_value(uint arg_pos, __global subt_rec *rec);
 
 void transferRQ(__global packet *rq,  __global packet *q, int n);
 
@@ -212,7 +212,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  ) {
   if (*state == WRITE) {
     transferRQ(rq, q, n);
-    printf("%d\n", q_size(0, 0, q, n));
+    barrier(CLK_GLOBAL_MEM_FENCE);
     if (computation_complete(q, n)) {
       *state = COMPLETE;
     }
@@ -262,7 +262,6 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
 
       /* Create a new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, result);
-      printf("Creating DATA packet\n");
 
       /* Send the result back to the compute unit that sent the reference request. */
       q_write(p, source, q, n);
@@ -290,7 +289,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
       /* Create and send new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
       q_write(p, return_to, q, n);
-      
+
       /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(subtask, subt);
     }
@@ -332,7 +331,7 @@ uint parse_subtask(uint source,
   for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
     /* Mark argument as absent. */
     subt_rec_set_arg_status(rec, arg_pos, ABSENT);
-
+    
     /* Get the next symbol (K_R or K_B) */
     symbol = cStore[(address * QUEUE_SIZE) + arg_pos + 1];
 
@@ -347,7 +346,7 @@ uint parse_subtask(uint source,
 
         /* Find out which service should perform the computation. */
         uint destination = symbol_get_SNId(symbol);
-
+	
         /* Send the packet and request the computation. */
         q_write(p, destination, q, n);
 
@@ -382,9 +381,9 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
       __global int *arg2 = get_arg_value(1, rec, data);
       __global int *arg3 = get_arg_value(2, rec, data);
       int result = (*arg1) + (*arg2);
-      printf("ADD: %d + %d = %d\n", *arg1, *arg2, result);
-      data[*arg3] = result;
-      return *arg3;
+
+      *arg3 = result;
+      return arg3 - data;
     }
     }
     break;
@@ -393,7 +392,6 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     switch (method) {
     case PTR: {
       uint arg1 = get_arg_const_value(0, rec);
-      printf("PTR: %d\n", arg1);
       return data[DATA_INFO_OFFSET + arg1];
     }
 
@@ -411,7 +409,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint kind = symbol_get_kind(symbol);
   uint value = symbol_get_value(symbol);
-  
+
   if (kind == K_R) {
     // Return full symbol.
   } else if (kind == K_B) {
@@ -422,7 +420,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
   return data + value;
 }
 
-uint *get_arg_const_value(uint arg_pos, __global subt_rec *rec) {
+uint get_arg_const_value(uint arg_pos, __global subt_rec *rec) {
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint value = symbol_get_value(symbol);
   return value;
