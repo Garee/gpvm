@@ -10,6 +10,7 @@
 #define CODE_STORE_SIZE (256 * QUEUE_SIZE)
 #define SUBT_SIZE 1024
 #define DATA_INFO_OFFSET 1
+#define NBYTES 8 // Number of bytes in a bytecode word.
 
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011
