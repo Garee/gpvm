@@ -285,6 +285,11 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
       uint return_as_addr = subt_rec_get_return_as_addr(rec);
       uint return_as_pos = subt_rec_get_return_as_pos(rec);
 
+      /* Initial reference packet doesn't need to send the result anyhere. It's in the data buffer. */
+      if (return_to == NOWHERE) {
+	break;
+      }
+
       /* Create and send new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
       q_write(p, return_to, q, n);
@@ -315,7 +320,7 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
   
   /* Get the K_S symbol from the code store. */
   bytecode symbol = cStore[address * QUEUE_SIZE];
-
+  
   /* Create a new subtask record. */
   uint service = symbol_get_service(symbol);
   uint nargs = symbol_get_nargs(symbol);

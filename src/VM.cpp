@@ -19,32 +19,8 @@ const char *KERNEL_BUILD_OPTIONS = "-g -I include";
 
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state);
 subt *createSubt();
-
-void validateArguments(int argc) {
-  if (argc < 2) {
-    std::cout << "Usage: ./vm [bytecode-file]" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-}
-
-std::vector<bytecode> readBytecode(char *bytecodeFile) {
-  std::ifstream f(bytecodeFile);
-  std::vector<bytecode> bytecodeWords;
-
-  if (f.is_open()) {
-    while (f.good()) {
-      bytecode word = 0;
-      for (int i = 0; i < NBYTES; i++) {
-        char c = f.get();
-        word = (word << NBYTES) + c;
-      }
-      
-      bytecodeWords.push_back(word);
-    }
-  }
-
-  return bytecodeWords;
-}
+void validateArguments(int argc);
+std::vector<bytecode> readBytecode(char *bytecodeFile);
 
 int main(int argc, char **argv) {
   validateArguments(argc);
@@ -53,7 +29,7 @@ int main(int argc, char **argv) {
   std::vector<cl::Device> devices;
   cl::Device device;
   cl::Program program;
-
+  
   DeviceInfo deviceInfo;
 
   try {
@@ -82,7 +58,6 @@ int main(int argc, char **argv) {
 
     /* Get the global memory size (in bytes) of the device. */
     // long globalMemSize = deviceInfo.global_mem_size(device);
-
     
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
@@ -94,7 +69,7 @@ int main(int argc, char **argv) {
 
     /* Create a program in the context using the kernel source code. */
     program = cl::Program(context, source);
-
+    
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_BUILD_OPTIONS);
     
@@ -111,7 +86,7 @@ int main(int argc, char **argv) {
     /* Allocate memory for the queues. */
     packet *queues = new packet[qBufSize];
     packet *readQueues = new packet[qBufSize];
-
+    
     /* Initialise queue elements to zero. */
     for (int i = 0; i < qBufSize; i++) {
       queues[i].x = 0;
@@ -119,7 +94,7 @@ int main(int argc, char **argv) {
       readQueues[i].x = 0;
       readQueues[i].y = 0;
     }
-
+    
     /* Which stage of the READ/WRITE cycle are we in? */
     int *state = new int;
     *state = WRITE;
@@ -127,11 +102,6 @@ int main(int argc, char **argv) {
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *codeStore = new bytecode[CODE_STORE_SIZE * QUEUE_SIZE];
     
-    // 4  :3         :1    :2       :6       :16 2|4                         :32 (8|8|8|8)
-    // K_S:(Datatype):(Ext):(Quoted):Task    :Mode|Reg|2Bits|NArgs           :SNId|SCLId|SCId|Opcode
-    // K_R:(Datatype):(Ext):Quoted  :CodePage:6Bits|5Bits|CodeAddress        :SNId|SCLId|SCId|Opcode
-    // K_B:Datatype  :0    :Quoted  :Task    :16Bits                         :Value
-
     /* Populate the code store. */
     codeStore[0] = 0x0000000300000000UL;
     codeStore[1] = 0x4000000100000000UL;
@@ -154,22 +124,22 @@ int main(int argc, char **argv) {
     }
 
     /* Create initial packet. */
-    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
+    packet p = pkt_create(REFERENCE, NOWHERE, 0, 0, 0);
     queues[nQueues] = p;   // Initial packet.
     queues[0].x = 1 << 16; // Tail index is 1.
     queues[0].y = WRITE;   // Last operation is write.
-
+    
     /* The subtask table. */
     subt *subtaskTable = createSubt();
-
+    
     long avGlobalMemSize = 1024 * 1024 * 1024; // In bytes.
     long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
-
+    
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
     cl_uint *data = new cl_uint[avGlobalMemSize];
 
     /* Write input data to data buffer. */
-
+    
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
     data[0] = 3;
@@ -178,8 +148,8 @@ int main(int argc, char **argv) {
     data[3] = 256 + 2;
     data[data[0] + 1] = 256 + 3;
 
-    data[256] = -1;
-    data[256 + 1] = 3;
+    data[256] = 2;
+    data[256 + 1] = 7;
 
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
@@ -239,7 +209,7 @@ int main(int argc, char **argv) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
-
+    
     std::cout << "Result: " << data[258] << std::endl;
 
     /* Cleanup */
@@ -278,4 +248,31 @@ subt *createSubt() {
   }
 
   return table;
+}
+
+
+void validateArguments(int argc) {
+  if (argc < 2) {
+    std::cout << "Usage: ./vm [bytecode-file]" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+}
+
+std::vector<bytecode> readBytecode(char *bytecodeFile) {
+  std::ifstream f(bytecodeFile);
+  std::vector<bytecode> bytecodeWords;
+  
+  if (f.is_open()) {
+    while (f.good()) {
+      bytecode word = 0;
+      for (int i = 0; i < NBYTES; i++) {
+        char c = f.get();
+        word = (word << NBYTES) + c;
+      }
+      
+      bytecodeWords.push_back(word);
+    }
+  }
+  
+  return bytecodeWords;
 }
