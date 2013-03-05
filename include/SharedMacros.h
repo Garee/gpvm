@@ -11,7 +11,6 @@
 #define SUBT_SIZE 1024
 #define DATA_INFO_OFFSET 1
 #define NBYTES 8 // Number of bytes in a bytecode word.
-#define NOWHERE -1 
 
 /* Used to create, manipulate and access packet information. */
 #define PKT_TYPE_MASK   0x3       // 00000000000000000000000000000011

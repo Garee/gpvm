@@ -184,7 +184,6 @@ uint pkt_get_type(packet p);
 uint pkt_get_source(packet p);
 uint pkt_get_arg_pos(packet p);
 uint pkt_get_sub(packet p);
-uint pkt_get_payload_type(packet p);
 uint pkt_get_payload(packet p);
 void pkt_set_type(packet *p, uint type);
 void pkt_set_source(packet *p, uint source);
@@ -244,7 +243,6 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
   uint source = pkt_get_source(p);
   uint arg_pos = pkt_get_arg_pos(p);
   uint subtask = pkt_get_sub(p);
-  uint payload_type = pkt_get_payload_type(p);
   uint address = pkt_get_payload(p);
   
   switch (type) {
@@ -286,7 +284,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
       uint return_as_pos = subt_rec_get_return_as_pos(rec);
 
       /* Initial reference packet doesn't need to send the result anyhere. It's in the data buffer. */
-      if (return_to == NOWHERE) {
+      if (return_to == (n + 1)) {
 	break;
       }
 
@@ -378,7 +376,7 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
 uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   __global subt_rec *rec = subt_get_rec(subtask, subt);
   uint service = subt_rec_get_service_id(rec);
-
+  
   uint library = symbol_get_SNLId(service);
   uint class = symbol_get_SNCId(service);
   uint method = symbol_get_opcode(service);
@@ -389,8 +387,8 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     case ADD: {
       __global int *arg1 = get_arg_value(0, rec, data);
       __global int *arg2 = get_arg_value(1, rec, data);
-      __global int *arg3 = get_arg_value(2, rec, data);
-      int result = (*arg1) + (*arg2);
+      __global uint *arg3 = get_arg_value(2, rec, data);
+      int result = *arg1 + *arg2;
       
       *arg3 = result;
       return arg3 - data;
@@ -416,10 +414,9 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     case MULT: {
       __global int *m1 = get_arg_value(0, rec, data);
       __global int *m2 = get_arg_value(1, rec, data);
-      __global int *result = get_arg_value(2, rec, data);
+      __global uint *result = get_arg_value(2, rec, data);
       uint n = get_arg_value(3, rec, data);
       
-      printf("MULT: %d %d %d\n", *m1, *m2, n);
       return result - data;
     }
     }
@@ -897,11 +894,6 @@ uint pkt_get_arg_pos(packet p) {
 /* Return the packet subtask. */
 uint pkt_get_sub(packet p) {
   return (p.x & PKT_SUB_MASK) >> PKT_SUB_SHIFT;
-}
-
-/* Return the packet payload type. */
-uint pkt_get_payload_type(packet p) {
-  return (p.x & PKT_PTYPE_MASK) >> PKT_PTYPE_SHIFT;
 }
 
 /* Return the packet payload. */

@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 
     /* Calculate the number of queues we need. */
     int nQueues = computeUnits * computeUnits;
-
+    
     /* Calculate the memory required to store the queues. The first nQueue packets are used to store
        information regarding the queues themselves (head index, tail index and last operation performed). */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     }
 
     /* Create initial packet. */
-    packet p = pkt_create(REFERENCE, NOWHERE, 0, 0, 0);
+    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
     queues[nQueues] = p;   // Initial packet.
     queues[0].x = 1 << 16; // Tail index is 1.
     queues[0].y = WRITE;   // Last operation is write.
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
-
+    
     cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
 
@@ -192,7 +192,6 @@ int main(int argc, char **argv) {
     /* Read the modified buffers. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
-
 
     /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {

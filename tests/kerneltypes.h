@@ -24,6 +24,8 @@ typedef struct ushort2 {
 
 /* Functions */
 #define get_global_id(n) 0
+#define barrier(n) 0
+#define CLK_GLOBAL_MEM_FENCE 0
 
 ushort2 as_ushort2(uint n) {
   ushort2 u;

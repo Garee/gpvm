@@ -9,19 +9,10 @@
 
 int tests_run = 0;
 
-void printB(ulong n) {
-  while (n) {
-    if (n & 1)
-      printf("1");
-    else
-      printf("0");
-    
-    n >>= 1;
-  }
-  printf("\n");
-}
+/**************************/
+/**** Helper Functions ****/
+/**************************/
 
-/* Helper Functions. */
 packet *q_create() {
   packet *q = malloc((16 + (QUEUE_SIZE * 16)) * sizeof(packet));
   if (q) {
@@ -101,14 +92,6 @@ static char *test_pkt_get_sub() {
   return NULL;
 }
 
-static char *test_pkt_get_payload_type() {
-  packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  mu_assert("FAIL: test_pkt_get_payload_type [1]", pkt_get_payload_type(p) == VAL);
-  pkt_set_payload_type(&p, PTR);
-  mu_assert("FAIL: test_pkt_get_payload_type [2]", pkt_get_payload_type(p) == PTR);
-  return NULL;
-}
-
 static char *test_pkt_get_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   mu_assert("FAIL: test_pkt_get_payload [1]", pkt_get_payload(p) == 4);
@@ -143,13 +126,6 @@ static char *test_pkt_set_sub() {
   return NULL;
 }
 
-static char *test_pkt_set_payload_type() {
-  packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
-  pkt_set_payload_type(&p, PTR);
-  mu_assert("FAIL: test_pkt_set_payload_type [1]", pkt_get_payload_type(p) == PTR);
-  return NULL;
-}
-
 static char *test_pkt_set_payload() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   pkt_set_payload(&p, 7);
@@ -163,7 +139,6 @@ static char *test_pkt_create() {
   mu_assert("FAIL: test_pkt_create [2]", pkt_get_source(p) == 1);
   mu_assert("FAIL: test_pkt_create [3]", pkt_get_arg_pos(p) == 2);
   mu_assert("FAIL: test_pkt_create [4]", pkt_get_sub(p) == 3);
-  mu_assert("FAIL: test_pkt_create [5]", pkt_get_payload_type(p) == VAL);
   mu_assert("FAIL: test_pkt_create [6]", pkt_get_payload(p) == 4);
   return NULL;
 }
@@ -322,15 +297,15 @@ static char *test_q_write() {
   return NULL;
 }
 
-static char *test_transferRQ() {
+static char *test_q_transfer() {
   packet *q = q_create();
   packet *rq = q_create();
   packet p = pkt_create(DATA, 1, 2, 3, 4);
   packet p2;
   q_write(p, 0, rq, 4);
-  transferRQ(rq, q, 4);
+  q_transfer(rq, q, 4);
   q_read(&p2, 0, q, 4);
-  mu_assert("FAIL: test_transferRQ", (p.x == p2.x) && (p.y == p2.y));
+  mu_assert("FAIL: test_q_transfer", (p.x == p2.x) && (p.y == p2.y));
   q_destroy(q);
   q_destroy(rq);
   return NULL;
@@ -505,7 +480,7 @@ static char *test_symbol_KR_create() {
   bytecode s = symbol_KR_create(1, 1);
   mu_assert("FAIL: test_symbol_KR_create [1]", symbol_get_kind(s) == K_R);
   mu_assert("FAIL: test_symbol_KR_create [2]", !symbol_is_quoted(s));
-  mu_assert("FAIL: test_symbol_KR_create [3]", symbol_get_subtask(s) == 1);
+  mu_assert("FAIL: test_symbol_KR_create [3]", symbol_get_address(s) == 1);
   mu_assert("FAIL: test_symbol_KR_create [4]", symbol_get_value(s) == 1);
   return NULL;
 }
@@ -560,9 +535,9 @@ static char *test_symbol_get_opcode() {
   return NULL;
 }
 
-static char *test_symbol_get_subtask() {
+static char *test_symbol_get_address() {
   bytecode s = symbol_KR_create(2, 3);
-  mu_assert("FAIL: test_symbol_get_subtask [1]", symbol_get_subtask(s) == 2);
+  mu_assert("FAIL: test_symbol_get_address [1]", symbol_get_address(s) == 2);
   return NULL;
 }
 
@@ -635,10 +610,10 @@ static char *test_symbol_set_opcode() {
   return NULL;
 }
 
-static char *test_symbol_set_subtask() {
+static char *test_symbol_set_address() {
   bytecode s = symbol_KR_create(2, 3);
-  symbol_set_subtask(&s, 5);
-  mu_assert("FAIL: test_symbol_set_subtask [1]", symbol_get_subtask(s) == 5);
+  symbol_set_address(&s, 5);
+  mu_assert("FAIL: test_symbol_set_address [1]", symbol_get_address(s) == 5);
   return NULL;
 }
 
@@ -661,16 +636,15 @@ static char *all_tests() {
   mu_run_test(test_pkt_get_source);
   mu_run_test(test_pkt_get_arg_pos);
   mu_run_test(test_pkt_get_sub);
-  mu_run_test(test_pkt_get_payload_type);
   mu_run_test(test_pkt_get_payload);
   mu_run_test(test_pkt_set_type);
   mu_run_test(test_pkt_set_source);
   mu_run_test(test_pkt_set_arg_pos);
   mu_run_test(test_pkt_set_sub);
-  mu_run_test(test_pkt_set_payload_type);
   mu_run_test(test_pkt_set_payload);
   mu_run_test(test_pkt_create);
-  
+
+  mu_run_test(test_q_transfer);
   mu_run_test(test_q_get_head_index);
   mu_run_test(test_q_get_tail_index);
   mu_run_test(test_q_set_head_index);
@@ -683,9 +657,7 @@ static char *all_tests() {
   mu_run_test(test_q_size);
   mu_run_test(test_q_read);
   mu_run_test(test_q_write);
-
-  mu_run_test(test_transferRQ);
-  
+    
   mu_run_test(test_subt_rec_get_service_id);
   mu_run_test(test_subt_rec_get_arg);
   mu_run_test(test_subt_rec_get_subt_status);
@@ -717,7 +689,7 @@ static char *all_tests() {
   mu_run_test(test_symbol_get_SNLId);
   mu_run_test(test_symbol_get_SNCId);
   mu_run_test(test_symbol_get_opcode);
-  mu_run_test(test_symbol_get_subtask);
+  mu_run_test(test_symbol_get_address);
   mu_run_test(test_symbol_get_nargs);
   mu_run_test(test_symbol_get_value);
   mu_run_test(test_symbol_set_kind);
@@ -728,7 +700,7 @@ static char *all_tests() {
   mu_run_test(test_symbol_set_SNLId);
   mu_run_test(test_symbol_set_SNCId);
   mu_run_test(test_symbol_set_opcode);
-  mu_run_test(test_symbol_set_subtask);
+  mu_run_test(test_symbol_set_address);
   mu_run_test(test_symbol_set_nargs);
   mu_run_test(test_symbol_set_value);
   
