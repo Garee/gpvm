@@ -2,15 +2,17 @@ Found YAML-file OclGannet.yml
 
 ; Gannet packet list
 
-NPackets: 10
+NPackets: 12
 ========
-code:0:0:3:c2.OclGannet.MAT.add:gateway
+code:0:0:5:c2.OclGannet.MAT.add:gateway
 0:9: : :0:0:0
 R:0: : :1:1:c2.OclGannet.MAT.add
 ------------
 S:0: : :1:1:c2.OclGannet.MAT.add
 R:0: : :1:2:c6.OclGannet.MAT.unit
 R:0: : :1:5:c4.OclGannet.MAT.mult
+R:0: : :1:10:c1.OclGannet.MEM.ptr
+R:0: : :1:11:c1.OclGannet.MEM.const
 
 ========
 code:0:0:3:c6.OclGannet.MAT.unit:gateway
@@ -79,6 +81,22 @@ R:0: : :1:9:c1.OclGannet.MEM.const
 ------------
 S:0: : :1:9:c1.OclGannet.MEM.const
 B:1: :Q:1:9:4
+
+========
+code:0:0:2:c1.OclGannet.MEM.ptr:gateway
+0:9: : :0:0:0
+R:0: : :1:10:c1.OclGannet.MEM.ptr
+------------
+S:0: : :1:10:c1.OclGannet.MEM.ptr
+B:1: :Q:1:10:5
+
+========
+code:0:0:2:c1.OclGannet.MEM.const:gateway
+0:9: : :0:0:0
+R:0: : :1:11:c1.OclGannet.MEM.const
+------------
+S:0: : :1:11:c1.OclGannet.MEM.const
+B:1: :Q:1:11:4
 
 ========
 reference:0:0:1:c2.OclGannet.MAT.add:gateway

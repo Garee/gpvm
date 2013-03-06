@@ -7,4 +7,6 @@
     (ptr '2)
     (const' 4)
  )
+ (ptr '5)
+ (const' 4)
 )

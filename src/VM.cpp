@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 
     /* Use the first available device. */
     device = devices[0];
-
+    
     /* Get the number of compute units for the device. */
     int computeUnits = deviceInfo.max_compute_units(device);
 
@@ -121,7 +121,6 @@ int main(int argc, char **argv) {
         int wordN = iterW - packet.begin(); // Which word?
 	codeStore[((packetN + 1) * QUEUE_SIZE) + wordN] = word;
       }
-      std::cout << std::endl;
     }
     
     /* Create initial packet. */
@@ -140,21 +139,25 @@ int main(int argc, char **argv) {
     cl_uint *data = new cl_uint[avGlobalMemSize];
     
     /* Write input data to data buffer. */
-
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
-    data[0] = 3;
+    data[0] = 5;
     data[1] = 256;
-    data[2] = data[1] + (1024 * 1024);
-    data[3] = data[2] + (1024 * 1024);
-    data[data[0] + 1] = data[3] + (1024 * 1024);
-
-    for (uint i = data[1]; i < data[2]; i++) {
-      data[i] = 1;
-    }
-    for (uint i = data[2]; i < data[3]; i++) {
-      data[i] = 2;
-    }
+    data[2] = data[1] + (4);
+    data[3] = data[2] + (4);
+    data[4] = 4;
+    data[5] = data[3] + (4);
+    data[data[0] + 1] = data[5] + (4); // Pointer to scratch free/scratch memory.
+    
+    data[data[1]] = 3;
+    data[data[1] + 1] = 2;
+    data[data[1] + 2] = 1;
+    data[data[1] + 3] = 5;
+    
+    data[data[2]] = 1;
+    data[data[2] + 1] = 1;
+    data[data[2] + 2] = 2;
+    data[data[2] + 3] = 3;
     
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
@@ -165,7 +168,7 @@ int main(int argc, char **argv) {
     
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-
+    
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
     
@@ -186,7 +189,7 @@ int main(int argc, char **argv) {
     
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(computeUnits);
-
+    
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
       commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
@@ -213,6 +216,9 @@ int main(int argc, char **argv) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
+
+    std::cout << data[data[5]] << " " << data[data[5] + 1] << std::endl;
+    std::cout << data[data[5] + 2] << " " << data[data[5] + 3] << std::endl;
     
     /* Cleanup */
     delete[] queues;

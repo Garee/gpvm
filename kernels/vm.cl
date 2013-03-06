@@ -112,7 +112,7 @@ uint parse_subtask(uint source,
                      int n,
                      __global bytecode *cStore,
                      __global subt *subt,
-                     __global uint *data);
+		   __global uint *data);
 uint service_compute(__global subt* subt, uint subtask,__global uint *data);
 bool computation_complete(__global packet *q, int n);
 
@@ -257,6 +257,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     break;
 
   case REFERENCE: {
+    printf("REFERENCE packet created.\n");
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
 
@@ -294,7 +295,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
       if (return_to == (n + 1)) {
         break;
       }
-      
+
       /* Create and send new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
       q_write(p, return_to, q, n);
@@ -383,7 +384,7 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
 uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   __global subt_rec *rec = subt_get_rec(subtask, subt);
   uint service = subt_rec_get_service_id(rec);
-  
+
   uint library = symbol_get_SNLId(service);
   uint class = symbol_get_SNCId(service);
   uint method = symbol_get_opcode(service);
@@ -398,17 +399,46 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     
     for (int i = 0; i < n; i++) {
       for (int r = 0; r < n; r++) {
-	int sum = 0;
-	for (int c = 0; c < n; c++) {
-	  sum += m1[i * n + c] * m2[c * n + r];
+        int sum = 0;
+        for (int c = 0; c < n; c++) {
+          sum += m1[i * n + c] * m2[c * n + r];
         }
 	
-	*(result + (i * n + r)) = sum;
+        *(result + (i * n + r)) = sum;
       }
     }
     
     return result - data;
   }
+    
+  case M_OclGannet_MAT_add: {
+    __global int *m1 = get_arg_value(0, rec, data);
+    __global int *m2 = get_arg_value(1, rec, data);
+    __global uint *result = get_arg_value(2, rec, data);
+    int n = get_arg_value(3, rec, data);
+
+    for (int row = 0; row < n; row++) {
+      for (int col = 0; col < n; col++) {
+	int sum = m1[row * n + col] + m2[row * n + col];
+	*(result + (row * n + col)) = sum;
+      }
+    }
+    
+    return result - data;
+  }
+    
+  case M_OclGannet_MAT_unit: {
+    __global int *m = get_arg_value(0, rec, data);
+    int n = get_arg_value(1, rec, data);
+    
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+	*(m + (i * n + j)) = (i == j) ? 1 : 0;
+      }
+    }
+    
+    return m - data;
+  } 
 
   case M_OclGannet_MEM_ptr: {
     uint arg1 = get_arg_value(0, rec, data);
@@ -507,7 +537,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint kind = symbol_get_kind(symbol);
   uint value = symbol_get_value(symbol);
-  
+
   if (kind == K_R) {
     return ((__global void *) symbol);
   } else if (kind == K_B) {
