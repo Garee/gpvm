@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
   cl::Program program;
 
   DeviceInfo deviceInfo;
-
+  
   try {
     /* Create a vector of available platforms. */
     cl::Platform::get(&platforms);
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_BUILD_OPTIONS);
-
+    
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
 
@@ -88,11 +88,11 @@ int main(int argc, char **argv) {
     /* Calculate the memory required to store the queues. The first nQueue packets are used to store
        information regarding the queues themselves (head index, tail index and last operation performed). */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
-
+    
     /* Allocate memory for the queues. */
     packet *queues = new packet[qBufSize];
     packet *readQueues = new packet[qBufSize];
-
+    
     /* Initialise queue elements to zero. */
     for (int i = 0; i < qBufSize; i++) {
       queues[i].x = 0;
@@ -117,17 +117,15 @@ int main(int argc, char **argv) {
       std::deque<bytecode> packet = *iterP;
       for (std::deque<bytecode>::iterator iterW = packet.begin(); iterW != packet.end(); iterW++) {
 	bytecode word = *iterW;
-	std::bitset<64> x(word);
-	std::cout << x << std::endl;
         int packetN = iterP - packets.begin(); // Which packet?
         int wordN = iterW - packet.begin(); // Which word?
-	codeStore[(packetN * QUEUE_SIZE) + wordN] = word;
+	codeStore[((packetN + 1) * QUEUE_SIZE) + wordN] = word;
       }
       std::cout << std::endl;
     }
     
     /* Create initial packet. */
-    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 0);
+    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 1);
     queues[nQueues] = p;   // Initial packet.
     queues[0].x = 1 << 16; // Tail index is 1.
     queues[0].y = WRITE;   // Last operation is write.
@@ -137,27 +135,31 @@ int main(int argc, char **argv) {
 
     long avGlobalMemSize = 1024 * 1024 * 1024; // In bytes.
     long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
-
+    
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
     cl_uint *data = new cl_uint[avGlobalMemSize];
-
+    
     /* Write input data to data buffer. */
 
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
     data[0] = 3;
     data[1] = 256;
-    data[2] = 256 + 1;
-    data[3] = 256 + 2;
-    data[data[0] + 1] = 256 + 3;
+    data[2] = data[1] + (1024 * 1024);
+    data[3] = data[2] + (1024 * 1024);
+    data[data[0] + 1] = data[3] + (1024 * 1024);
 
-    data[256] = 2;
-    data[256 + 1] = 7;
-
+    for (uint i = data[1]; i < data[2]; i++) {
+      data[i] = 1;
+    }
+    for (uint i = data[2]; i < data[3]; i++) {
+      data[i] = 2;
+    }
+    
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
-
+    
     cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), readQueues);
     
@@ -166,10 +168,10 @@ int main(int argc, char **argv) {
 
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
-
+    
     cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
-
+    
     cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, dataSize * sizeof(cl_uint));
     commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
 
@@ -181,7 +183,7 @@ int main(int argc, char **argv) {
     kernel.setArg(4, codeStoreBuffer);
     kernel.setArg(5, subtaskTableBuffer);
     kernel.setArg(6, dataBuffer);
-
+    
     /* Set the NDRange. */
     cl::NDRange global(computeUnits), local(computeUnits);
 
@@ -191,11 +193,11 @@ int main(int argc, char **argv) {
       commandQueue.finish();
       toggleState(commandQueue, stateBuffer, state);
     }
-
+    
     /* Read the modified buffers. */
     commandQueue.enqueueReadBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
-
+    
     /* Print the queue details. */
     for (int i = 0; i < nQueues; i++) {
       int x = ((queues[i].x & 0xFFFF0000) >> 16);
@@ -211,9 +213,7 @@ int main(int argc, char **argv) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
-
-    std::cout << "Result: " << data[258] << std::endl;
-
+    
     /* Cleanup */
     delete[] queues;
     delete[] readQueues;
@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
     std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
   }
-
+  
   return 0;
 }
 
@@ -239,7 +239,7 @@ void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *s
 
 subt *createSubt() {
   subt *table = new subt;
-
+  
   if (table) {
     table->av_recs[0] = 1; // The first element is the top of stack index.
     
@@ -274,7 +274,7 @@ std::deque<bytecode> readBytecode(char *bytecodeFile) {
       bytecodeWords.push_back(word);
     }
   }
-
+  
   return bytecodeWords;
 }
 
@@ -292,7 +292,7 @@ std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeW
         length = (headerWord & F_Length) >> FS_Length;
       }
     }
-
+    
     for (int i = 0; i < length; i++) {
       bytecode payloadWord = bytecodeWords.front();
       bytecodeWords.pop_front();
@@ -301,6 +301,6 @@ std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeW
     
     packets.push_back(packet);
   }
-
+  
   return packets;
 }

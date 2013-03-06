@@ -77,20 +77,27 @@
 #define K_B 6 // Data symbol.
 #define K_P 8 // Contains a pointer to data memory.
 
-/* Definition of computation class types - Placeholders */
-#define ALU 0
-#define MEM 1
-#define MAT 2
+#define M_OclGannet_MAT_mult    66049
+#define M_OclGannet_MAT_add     66050
+#define M_OclGannet_MAT_sub     66051
+#define M_OclGannet_MAT_unit    66052
+#define M_OclGannet_MAT_det     66053
+#define M_OclGannet_MAT_trans   66054
+#define M_OclGannet_LET_assign  66049
+#define M_OclGannet_LET_buf     66050
+#define M_OclGannet_MEM_ptr     65793
+#define M_OclGannet_MEM_const   65794
 
-/* ALU methods */
-#define ADD 0
+#define S_OclGannet_MEM  1
+#define S_OclGannet_MAT  2
+#define S_OclGannet_MAT  3
+#define S_OclGannet_MAT  4
+#define S_OclGannet_MAT  5
+#define S_OclGannet_MAT  6
 
-/* MEM methods */
-#define PTR 0
-#define CONST 1
-
-/* MAT methods */
-#define MULT 0
+#define SC_OclGannet_MAT  258
+#define SC_OclGannet_LET  258
+#define SC_OclGannet_MEM  257
 
 /***********************************/
 /******* Function Prototypes *******/
@@ -98,14 +105,14 @@
 
 void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, __global subt *subt, __global uint *data);
 uint parse_subtask(uint source,
-                   uint arg_pos,
-                   uint subtask,
-                   uint address,
-                   __global packet *q,
-                   int n,
-                   __global bytecode *cStore,
-                   __global subt *subt,
-                   __global uint *data);
+                     uint arg_pos,
+                     uint subtask,
+                     uint address,
+                     __global packet *q,
+                     int n,
+                     __global bytecode *cStore,
+                     __global subt *subt,
+                     __global uint *data);
 uint service_compute(__global subt* subt, uint subtask,__global uint *data);
 bool computation_complete(__global packet *q, int n);
 
@@ -209,7 +216,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
 
     /* Synchronise the work items to ensure that all packets have transferred. */
     barrier(CLK_GLOBAL_MEM_FENCE);
-    
+
     if (computation_complete(q, n)) {
       *state = COMPLETE;
     }
@@ -233,7 +240,7 @@ bool computation_complete(__global packet *q, int n) {
       }
     }
   }
-  
+
   return true;
 }
 
@@ -244,11 +251,11 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
   uint arg_pos = pkt_get_arg_pos(p);
   uint subtask = pkt_get_sub(p);
   uint address = pkt_get_payload(p);
-  
+
   switch (type) {
   case ERROR:
     break;
-    
+
   case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
@@ -268,7 +275,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     }
     break;
   }
-    
+
   case DATA:
     /* Store the data in the subtask record. */
     subt_store_symbol(SYMBOL_KP_ZERO + address, arg_pos, subtask, subt);
@@ -276,7 +283,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     if (subt_is_ready(subtask, subt)) {
       /* Perform the computation. */
       uint result = service_compute(subt, subtask, data);
-      
+
       /* Figure out where to send the result to. */
       __global subt_rec *rec = subt_get_rec(subtask, subt);
       uint return_to = subt_rec_get_return_to(rec);
@@ -285,13 +292,13 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
 
       /* Initial reference packet doesn't need to send the result anyhere. It's in the data buffer. */
       if (return_to == (n + 1)) {
-	break;
+        break;
       }
-
+      
       /* Create and send new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
       q_write(p, return_to, q, n);
-      
+
       /* Free up the subtask record so that it may be re-used. */
       subt_cleanup(subtask, subt);
     }
@@ -315,10 +322,10 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
   ushort av_index;
   while (!subt_pop(&av_index, subt)) {}
   __global subt_rec *rec = subt_get_rec(av_index, subt);
-  
+
   /* Get the K_S symbol from the code store. */
   bytecode symbol = cStore[address * QUEUE_SIZE];
-  
+
   /* Create a new subtask record. */
   uint service = symbol_get_service(symbol);
   uint nargs = symbol_get_nargs(symbol);
@@ -335,10 +342,10 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
   for (int arg_pos = 0; arg_pos < nargs; arg_pos++) {
     /* Mark argument as absent. */
     subt_rec_set_arg_status(rec, arg_pos, ABSENT);
-    
+
     /* Get the next symbol (K_R or K_B) */
     symbol = cStore[(address * QUEUE_SIZE) + arg_pos + 1];
-    
+
     switch (symbol_get_kind(symbol)) {
     case K_R:
       if (symbol_is_quoted(symbol)) {
@@ -347,18 +354,18 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
         /* Create a packet to request a computation. */
         uint address = symbol_get_address(symbol);
         packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, address);
-	
+
         /* Find out which service should perform the computation. */
         uint destination = symbol_get_SNId(symbol);
-	
+
         /* Send the packet and request the computation. */
         q_write(p, destination, q, n);
-	
+
         /* Mark argument as requested. */
         subt_rec_set_arg_status(rec, arg_pos, REQUESTING);
       }
       break;
-      
+
     case K_B:
       subt_store_symbol(symbol, arg_pos, av_index, subt);
       break;
@@ -367,7 +374,7 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
 
   /* Waiting for references to be computed. */
   subt_rec_set_subt_status(rec, PENDING);
-  
+
   return av_index;
 }
 
@@ -380,48 +387,40 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   uint library = symbol_get_SNLId(service);
   uint class = symbol_get_SNCId(service);
   uint method = symbol_get_opcode(service);
-  
-  switch (class) {
-  case ALU:
-    switch (method) {
-    case ADD: {
-      __global int *arg1 = get_arg_value(0, rec, data);
-      __global int *arg2 = get_arg_value(1, rec, data);
-      __global uint *arg3 = get_arg_value(2, rec, data);
-      int result = *arg1 + *arg2;
-      
-      *arg3 = result;
-      return arg3 - data;
-    }
-    }
-    break;
+  uint libAndClassAndMethod = (library << 16) + (class << 8) + method;
+
+  switch (libAndClassAndMethod) {
+  case M_OclGannet_MAT_mult: {
+    __global int *m1 = get_arg_value(0, rec, data);
+    __global int *m2 = get_arg_value(1, rec, data);
+    __global uint *result = get_arg_value(2, rec, data);
+    int n = get_arg_value(3, rec, data);
     
-  case MEM:
-    switch (method) {
-    case PTR: {
-      uint arg1 = get_arg_value(0, rec, data);
-      return data[DATA_INFO_OFFSET + arg1];
-    }
-      
-    case CONST: {
-      uint arg1 = get_arg_value(0, rec, data);
-      return DATA_INFO_OFFSET + arg1;
-    }
+    for (int i = 0; i < n; i++) {
+      for (int r = 0; r < n; r++) {
+	int sum = 0;
+	for (int c = 0; c < n; c++) {
+	  sum += m1[i * n + c] * m2[c * n + r];
+        }
+	
+	*(result + (i * n + r)) = sum;
+      }
     }
     
-  case MAT:
-    switch (method) {
-    case MULT: {
-      __global int *m1 = get_arg_value(0, rec, data);
-      __global int *m2 = get_arg_value(1, rec, data);
-      __global uint *result = get_arg_value(2, rec, data);
-      uint n = get_arg_value(3, rec, data);
-      
-      return result - data;
-    }
-    }
+    return result - data;
   }
-  
+
+  case M_OclGannet_MEM_ptr: {
+    uint arg1 = get_arg_value(0, rec, data);
+    return data[DATA_INFO_OFFSET + arg1];
+  }
+
+  case M_OclGannet_MEM_const: {
+    uint arg1 = get_arg_value(0, rec, data);
+    return DATA_INFO_OFFSET + arg1;
+  }
+  }
+
   return 0;
 }
 
@@ -455,7 +454,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -467,7 +466,7 @@ bool subt_pop(ushort *av_index, __global subt *subt) {
   if (subt_is_full(subt)) {
     return false;
   }
-  
+
   ushort top = subt_top(subt);
   *av_index = subt->av_recs[top];
   subt_set_top(subt, top + 1);
@@ -514,7 +513,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
   } else if (kind == K_B) {
     return ((__global void *) value);
   }
-  
+
   // K_P symbol - Value is a pointer, actual arg in data buffer.
   return data + value;
 }
@@ -640,7 +639,7 @@ bytecode symbol_KR_create(uint subtask, uint name) {
   return s;
 }
 
-/* Create a K_B symbol. */ 
+/* Create a K_B symbol. */
 bytecode symbol_KB_create(uint value) {
   bytecode s = 0;
   symbol_set_kind(&s, K_B);

@@ -30,7 +30,7 @@ typedef unsigned int UINT;
 
 namespace SBA {
 
-const UINT M_OclGannet_MAT_mult = 66049;
+  const UINT M_OclGannet_MAT_mult = 66049;
 const UINT M_OclGannet_MAT_add = 66050;
 const UINT M_OclGannet_MAT_sub = 66051;
 const UINT M_OclGannet_MAT_unit = 66052;
