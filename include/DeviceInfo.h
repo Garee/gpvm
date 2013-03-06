@@ -31,7 +31,7 @@ public:
     infotbl["CL_DEVICE_VENDOR_ID"]=InfoTuple(CL_DEVICE_VENDOR_ID,UINT);
     infotbl["CL_DEVICE_MAX_COMPUTE_UNITS"]=InfoTuple(CL_DEVICE_MAX_COMPUTE_UNITS,UINT);
     infotbl["CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS"]=InfoTuple(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,UINT);
-    //infotbl["CL_DEVICE_MAX_WORK_GROUP_SIZE"]=InfoTuple(CL_DEVICE_MAX_WORK_GROUP_SIZE,UINT);
+    infotbl["CL_DEVICE_MAX_WORK_GROUP_SIZE"]=InfoTuple(CL_DEVICE_MAX_WORK_GROUP_SIZE,UINT);
     //infotbl["CL_DEVICE_MAX_WORK_ITEM_SIZES"]=InfoTuple(CL_DEVICE_MAX_WORK_ITEM_SIZES,UINT);
     infotbl["CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR"]=InfoTuple(CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,UINT);
     infotbl["CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT"]=InfoTuple(CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT,UINT);
@@ -81,6 +81,7 @@ public:
   
   unsigned long global_mem_size(const cl::Device&);
   unsigned int max_compute_units(const cl::Device&);
+  unsigned int max_workgroup_size(const cl::Device&);
   bool isGPU(const cl::Device&);
   bool isCPU(const cl::Device&);
 };

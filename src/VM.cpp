@@ -45,10 +45,10 @@ int main(int argc, char **argv) {
     /* Create a vector of available devices (GPU Priority). */
     try {
       /* Use CPU for debugging */
-      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
-
+      // platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+      
       /* Use GPU in practice. */
-      // platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
@@ -62,9 +62,12 @@ int main(int argc, char **argv) {
     /* Get the number of compute units for the device. */
     int computeUnits = deviceInfo.max_compute_units(device);
 
+    /* Get the max work group size. */
+    int maxWorkgroupSize = deviceInfo.max_workgroup_size(device);
+    
     /* Get the global memory size (in bytes) of the device. */
     // long globalMemSize = deviceInfo.global_mem_size(device);
-
+    
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
 
@@ -75,7 +78,7 @@ int main(int argc, char **argv) {
 
     /* Create a program in the context using the kernel source code. */
     program = cl::Program(context, source);
-
+    
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_BUILD_OPTIONS);
     
@@ -84,7 +87,7 @@ int main(int argc, char **argv) {
 
     /* Calculate the number of queues we need. */
     int nQueues = computeUnits * computeUnits;
-
+    
     /* Calculate the memory required to store the queues. The first nQueue packets are used to store
        information regarding the queues themselves (head index, tail index and last operation performed). */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
@@ -100,14 +103,14 @@ int main(int argc, char **argv) {
       readQueues[i].x = 0;
       readQueues[i].y = 0;
     }
-
+    
     /* Which stage of the READ/WRITE cycle are we in? */
     int *state = new int;
     *state = WRITE;
     
     /* The code store stores bytecode in QUEUE_SIZE chunks. */
     bytecode *codeStore = new bytecode[CODE_STORE_SIZE * QUEUE_SIZE];
-
+    
     /* Read the bytecode from file. */
     std::deque<bytecode> bytecodeWords = readBytecode(argv[1]);
     std::deque< std::deque<bytecode> > packets = words2Packets(bytecodeWords);
@@ -122,7 +125,7 @@ int main(int argc, char **argv) {
 	codeStore[((packetN + 1) * QUEUE_SIZE) + wordN] = word;
       }
     }
-    
+
     /* Create initial packet. */
     packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 1);
     queues[nQueues] = p;   // Initial packet.
@@ -131,12 +134,12 @@ int main(int argc, char **argv) {
 
     /* The subtask table. */
     subt *subtaskTable = createSubt();
-
-    long avGlobalMemSize = 1024 * 1024 * 1024; // In bytes.
+    
+    long avGlobalMemSize = 32 * 1024 * 1024; // In bytes.
     long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
     
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
-    cl_uint *data = new cl_uint[avGlobalMemSize];
+    cl_uint *data = new cl_uint[dataSize];
     
     /* Write input data to data buffer. */
     /* :1        :255            :X        :Y
@@ -145,9 +148,9 @@ int main(int argc, char **argv) {
     data[1] = 256;
     data[2] = data[1] + (4);
     data[3] = data[2] + (4);
-    data[4] = 4;
-    data[5] = data[3] + (4);
-    data[data[0] + 1] = data[5] + (4); // Pointer to scratch free/scratch memory.
+    data[4] = data[3] + (4);
+    data[5] = 2;
+    data[data[0] + 1] = data[4] + (4); // Pointer to scratch free/scratch memory.
     
     data[data[1]] = 3;
     data[data[1] + 1] = 2;
@@ -158,26 +161,26 @@ int main(int argc, char **argv) {
     data[data[2] + 1] = 1;
     data[data[2] + 2] = 2;
     data[data[2] + 3] = 3;
-    
+
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
-    
+
     cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), readQueues);
-    
+
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-    
+
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
     
     cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
-    
+
     cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, dataSize * sizeof(cl_uint));
     commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
-
+    
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
     kernel.setArg(1, rqBuffer);
@@ -188,7 +191,7 @@ int main(int argc, char **argv) {
     kernel.setArg(6, dataBuffer);
     
     /* Set the NDRange. */
-    cl::NDRange global(computeUnits), local(computeUnits);
+    cl::NDRange global(computeUnits), local(maxWorkgroupSize);
     
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
@@ -202,23 +205,23 @@ int main(int argc, char **argv) {
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
     
     /* Print the queue details. */
-    for (int i = 0; i < nQueues; i++) {
+    /*for (int i = 0; i < nQueues; i++) {
       int x = ((queues[i].x & 0xFFFF0000) >> 16);
       int y = queues[i].x & 0xFFFF;
       std::cout << "(" << x << "," << y << " " << queues[i].y << ")" << " ";
     }
     std::cout << std::endl;
-    std::cout << std::endl;
-
+    std::cout << std::endl;*/
+    
     /* Print the queues. */
-    for (int i = nQueues; i < qBufSize; i++) {
+    /* for (int i = nQueues; i < qBufSize; i++) {
       if ((i % QUEUE_SIZE) == 0) std::cout << std::endl;
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << data[data[5]] << " " << data[data[5] + 1] << std::endl;
-    std::cout << data[data[5] + 2] << " " << data[data[5] + 3] << std::endl;
+      }
+    std::cout << std::endl; */
+    
+    std::cout << data[data[6]] << " " << data[data[6] + 1] << std::endl;
+    std::cout << data[data[6] + 2] << " " << data[data[6] + 3] << std::endl;
     
     /* Cleanup */
     delete[] queues;

@@ -90,10 +90,6 @@
 
 #define S_OclGannet_MEM  1
 #define S_OclGannet_MAT  2
-#define S_OclGannet_MAT  3
-#define S_OclGannet_MAT  4
-#define S_OclGannet_MAT  5
-#define S_OclGannet_MAT  6
 
 #define SC_OclGannet_MAT  258
 #define SC_OclGannet_LET  258
@@ -105,14 +101,14 @@
 
 void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, __global subt *subt, __global uint *data);
 uint parse_subtask(uint source,
-                     uint arg_pos,
-                     uint subtask,
-                     uint address,
-                     __global packet *q,
-                     int n,
-                     __global bytecode *cStore,
-                     __global subt *subt,
-		   __global uint *data);
+                   uint arg_pos,
+                   uint subtask,
+                   uint address,
+                   __global packet *q,
+                   int n,
+                   __global bytecode *cStore,
+                   __global subt *subt,
+                   __global uint *data);
 uint service_compute(__global subt* subt, uint subtask,__global uint *data);
 bool computation_complete(__global packet *q, int n);
 
@@ -257,7 +253,6 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     break;
 
   case REFERENCE: {
-    printf("REFERENCE packet created.\n");
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
 
@@ -384,7 +379,7 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
 uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   __global subt_rec *rec = subt_get_rec(subtask, subt);
   uint service = subt_rec_get_service_id(rec);
-
+  
   uint library = symbol_get_SNLId(service);
   uint class = symbol_get_SNCId(service);
   uint method = symbol_get_opcode(service);
@@ -395,8 +390,9 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     __global int *m1 = get_arg_value(0, rec, data);
     __global int *m2 = get_arg_value(1, rec, data);
     __global uint *result = get_arg_value(2, rec, data);
-    int n = get_arg_value(3, rec, data);
-    
+    __global int *sz = get_arg_value(3, rec, data);
+    int n = *sz;
+
     for (int i = 0; i < n; i++) {
       for (int r = 0; r < n; r++) {
         int sum = 0;
@@ -415,39 +411,41 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     __global int *m1 = get_arg_value(0, rec, data);
     __global int *m2 = get_arg_value(1, rec, data);
     __global uint *result = get_arg_value(2, rec, data);
-    int n = get_arg_value(3, rec, data);
+    __global int *sz = get_arg_value(3, rec, data);
+    int n = *sz;
 
     for (int row = 0; row < n; row++) {
       for (int col = 0; col < n; col++) {
-	int sum = m1[row * n + col] + m2[row * n + col];
-	*(result + (row * n + col)) = sum;
+        int sum = m1[row * n + col] + m2[row * n + col];
+        *(result + (row * n + col)) = sum;
       }
     }
-    
+
     return result - data;
   }
-    
+
   case M_OclGannet_MAT_unit: {
-    __global int *m = get_arg_value(0, rec, data);
-    int n = get_arg_value(1, rec, data);
-    
+    __global uint *m = get_arg_value(0, rec, data);
+    __global int *sz = get_arg_value(1, rec, data);
+    int n = *sz;
+
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
-	*(m + (i * n + j)) = (i == j) ? 1 : 0;
+        *(m + (i * n + j)) = (i == j) ? 1 : 0;
       }
     }
     
     return m - data;
-  } 
-
+  }
+    
   case M_OclGannet_MEM_ptr: {
     uint arg1 = get_arg_value(0, rec, data);
     return data[DATA_INFO_OFFSET + arg1];
   }
-
+    
   case M_OclGannet_MEM_const: {
     uint arg1 = get_arg_value(0, rec, data);
-    return DATA_INFO_OFFSET + arg1;
+    return arg1 + 1;
   }
   }
 
@@ -866,7 +864,7 @@ bool q_read(packet *result, size_t id, __global packet *q, int n) {
   if (q_is_empty(gid, id, q, n)) {
     return false;
   }
-
+  
   int index = q_get_head_index(gid, id, q, n);
   *result = q[(n*n) + (gid * n * QUEUE_SIZE) + (id * QUEUE_SIZE) + index];
   q_set_head_index((index + 1) % QUEUE_SIZE, gid, id, q, n);
@@ -881,7 +879,7 @@ bool q_write(packet value, size_t id, __global packet *q, int n) {
   if (q_is_full(id, gid, q, n)) {
     return false;
   }
-
+  
   int index = q_get_tail_index(id, gid, q, n);
   q[(n*n) + (id * n * QUEUE_SIZE) + (gid * QUEUE_SIZE) + index] = value;
   q_set_tail_index((index + 1) % QUEUE_SIZE, id, gid, q, n);

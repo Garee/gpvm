@@ -45,6 +45,12 @@ unsigned int DeviceInfo::max_compute_units(const cl::Device& device) {
   return info;
 }
 
+unsigned int DeviceInfo::max_workgroup_size(const cl::Device& device) {
+  cl_uint info;
+  device.getInfo(infotbl["CL_DEVICE_MAX_WORK_GROUP_SIZE"].infocode,&info);
+  return info;
+}
+
 bool DeviceInfo::isGPU(const cl::Device& device) {
   cl_device_type devtype;
   cl_int err=device.getInfo(CL_DEVICE_TYPE,&devtype);
