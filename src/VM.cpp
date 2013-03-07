@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <deque>
-#include <bitset>
+#include <sstream>
 #include "DeviceInfo.h"
 #include "SharedMacros.h"
 #include "SharedTypes.h"
@@ -18,6 +18,7 @@ const char *KERNEL_NAME = "vm";
 const char *KERNEL_FILE = "kernels/vm.cl";
 const char *KERNEL_BUILD_OPTIONS = "-I include";
 
+const int NARGS = 3;
 const int NPACKET_SHIFT = ((NBYTES * 8) - 16);
 const int FS_Length = 32;
 const long F_Length = 0x0000ffff00000000;
@@ -30,7 +31,7 @@ std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeW
 
 int main(int argc, char **argv) {
   validateArguments(argc);
-
+  
   std::vector<cl::Platform> platforms;
   std::vector<cl::Device> devices;
   cl::Device device;
@@ -45,10 +46,10 @@ int main(int argc, char **argv) {
     /* Create a vector of available devices (GPU Priority). */
     try {
       /* Use CPU for debugging */
-      // platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
       
       /* Use GPU in practice. */
-      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      // platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
@@ -59,18 +60,12 @@ int main(int argc, char **argv) {
     /* Use the first available device. */
     device = devices[0];
     
-    /* Get the number of compute units for the device. */
-    int computeUnits = deviceInfo.max_compute_units(device);
-
-    /* Get the max work group size. */
-    int maxWorkgroupSize = deviceInfo.max_workgroup_size(device);
-    
     /* Get the global memory size (in bytes) of the device. */
     // long globalMemSize = deviceInfo.global_mem_size(device);
     
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
-
+    
     /* Read the kernel program source. */
     std::ifstream kernelSourceFile(KERNEL_FILE);
     std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), (std::istreambuf_iterator<char>()));
@@ -85,9 +80,13 @@ int main(int argc, char **argv) {
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
 
-    /* Calculate the number of queues we need. */
-    int nQueues = computeUnits * computeUnits;
+    /* How many services are to be used? */
+    int nServices = 0;
+    std::stringstream(argv[2]) >> nServices;
     
+    /* Calculate the number of queues we need. */
+    int nQueues = nServices * nServices;
+
     /* Calculate the memory required to store the queues. The first nQueue packets are used to store
        information regarding the queues themselves (head index, tail index and last operation performed). */
     int qBufSize = (nQueues * QUEUE_SIZE) + nQueues;
@@ -127,7 +126,7 @@ int main(int argc, char **argv) {
     }
 
     /* Create initial packet. */
-    packet p = pkt_create(REFERENCE, computeUnits + 1, 0, 0, 1);
+    packet p = pkt_create(REFERENCE, nServices + 1, 0, 0, 1);
     queues[nQueues] = p;   // Initial packet.
     queues[0].x = 1 << 16; // Tail index is 1.
     queues[0].y = WRITE;   // Last operation is write.
@@ -161,11 +160,11 @@ int main(int argc, char **argv) {
     data[data[2] + 1] = 1;
     data[data[2] + 2] = 2;
     data[data[2] + 3] = 3;
-
+    
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
-
+    
     cl::Buffer rqBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(rqBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), readQueues);
 
@@ -177,21 +176,21 @@ int main(int argc, char **argv) {
     
     cl::Buffer subtaskTableBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(subt));
     commandQueue.enqueueWriteBuffer(subtaskTableBuffer, CL_TRUE, 0, sizeof(subt), subtaskTable);
-
+    
     cl::Buffer dataBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, dataSize * sizeof(cl_uint));
     commandQueue.enqueueWriteBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
     
     /* Set kernel arguments. */
     kernel.setArg(0, qBuffer);
     kernel.setArg(1, rqBuffer);
-    kernel.setArg(2, computeUnits);
+    kernel.setArg(2, nServices);
     kernel.setArg(3, stateBuffer);
     kernel.setArg(4, codeStoreBuffer);
     kernel.setArg(5, subtaskTableBuffer);
     kernel.setArg(6, dataBuffer);
     
     /* Set the NDRange. */
-    cl::NDRange global(computeUnits), local(maxWorkgroupSize);
+    cl::NDRange global(nServices), local(nServices);
     
     /* Run the kernel on NDRange until completion. */
     while (*state != COMPLETE) {
@@ -263,7 +262,7 @@ subt *createSubt() {
 
 
 void validateArguments(int argc) {
-  if (argc < 2) {
+  if (argc < NARGS) {
     std::cout << "Usage: ./vm [bytecode-file]" << std::endl;
     exit(EXIT_FAILURE);
   }

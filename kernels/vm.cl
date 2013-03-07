@@ -352,8 +352,8 @@ uint parse_subtask(uint source,                  /* The compute unit who sent th
         packet p = pkt_create(REFERENCE, get_global_id(0), arg_pos, av_index, address);
 
         /* Find out which service should perform the computation. */
-        uint destination = symbol_get_SNId(symbol);
-
+        uint destination = symbol_get_SNId(symbol) - 1; // -1 as service 0 is not reserved for gateway.
+	
         /* Send the packet and request the computation. */
         q_write(p, destination, q, n);
 
