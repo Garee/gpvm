@@ -9,6 +9,8 @@
 #include <vector>
 #include <deque>
 #include <sstream>
+#include <cstdlib>
+#include <ctime>
 #include "DeviceInfo.h"
 #include "SharedMacros.h"
 #include "SharedTypes.h"
@@ -28,9 +30,13 @@ subt *createSubt();
 void validateArguments(int argc);
 std::deque<bytecode> readBytecode(char *bytecodeFile);
 std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeWords);
+int randomNumber(int max);
 
 int main(int argc, char **argv) {
   validateArguments(argc);
+
+  /* Initialise seed for random number generation. */
+  srand(time(NULL));
   
   std::vector<cl::Platform> platforms;
   std::vector<cl::Device> devices;
@@ -53,7 +59,7 @@ int main(int argc, char **argv) {
     } catch (cl::Error error) {
       platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
-
+    
     /* Create a platform context for the available devices. */
     cl::Context context(devices);
 
@@ -70,7 +76,7 @@ int main(int argc, char **argv) {
     std::ifstream kernelSourceFile(KERNEL_FILE);
     std::string kernelSource(std::istreambuf_iterator<char>(kernelSourceFile), (std::istreambuf_iterator<char>()));
     cl::Program::Sources source(1, std::make_pair(kernelSource.c_str(), kernelSource.length() + 1));
-
+    
     /* Create a program in the context using the kernel source code. */
     program = cl::Program(context, source);
     
@@ -139,28 +145,31 @@ int main(int argc, char **argv) {
     
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
     cl_uint *data = new cl_uint[dataSize];
-    
+    std::cout << "dataSize = " << dataSize << std::endl;
     /* Write input data to data buffer. */
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
-    data[0] = 5;
+    
+    int dim = 1024; // N rows of a square matrix.
+    
+    data[0] = 6;
     data[1] = 256;
-    data[2] = data[1] + (4);
-    data[3] = data[2] + (4);
-    data[4] = data[3] + (4);
-    data[5] = 2;
-    data[data[0] + 1] = data[4] + (4); // Pointer to scratch free/scratch memory.
+    data[2] = data[1] + (dim * dim);
+    data[3] = data[2] + (dim * dim);
+    data[4] = data[3] + (dim * dim);
+    data[5] = dim;
+    data[6] = data[4] + (dim * dim);
+    data[data[0] + 1] = data[6] + (dim * dim); // Pointer to scratch free/scratch memory.
     
-    data[data[1]] = 3;
-    data[data[1] + 1] = 2;
-    data[data[1] + 2] = 1;
-    data[data[1] + 3] = 5;
+    // Populate input matrices.
+    for (uint i = data[1]; i < data[2]; i++) {
+      data[i] = randomNumber(10);
+    }
     
-    data[data[2]] = 1;
-    data[data[2] + 1] = 1;
-    data[data[2] + 2] = 2;
-    data[data[2] + 3] = 3;
-    
+    for (uint i = data[2]; i < data[3]; i++) {
+      data[i] = randomNumber(10);
+    }
+
     /* Create memory buffers on the device. */
     cl::Buffer qBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, qBufSize * sizeof(packet));
     commandQueue.enqueueWriteBuffer(qBuffer, CL_TRUE, 0, qBufSize * sizeof(packet), queues);
@@ -170,7 +179,7 @@ int main(int argc, char **argv) {
 
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-
+    
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
     
@@ -218,7 +227,7 @@ int main(int argc, char **argv) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
       }
     std::cout << std::endl; */
-    
+
     std::cout << data[data[6]] << " " << data[data[6] + 1] << std::endl;
     std::cout << data[data[6] + 2] << " " << data[data[6] + 3] << std::endl;
     
@@ -311,4 +320,9 @@ std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeW
   }
   
   return packets;
+}
+
+/* Generate a random number between 0 and max. */
+int randomNumber(int max) {
+  return (rand() % (max + 1));
 }

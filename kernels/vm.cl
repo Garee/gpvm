@@ -387,6 +387,7 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
 
   switch (libAndClassAndMethod) {
   case M_OclGannet_MAT_mult: {
+    printf("MULT\n");
     __global int *m1 = get_arg_value(0, rec, data);
     __global int *m2 = get_arg_value(1, rec, data);
     __global uint *result = get_arg_value(2, rec, data);
@@ -397,6 +398,11 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
       for (int r = 0; r < n; r++) {
         int sum = 0;
         for (int c = 0; c < n; c++) {
+	  if ((i * n + c) > 8000000) {
+	    printf("1");
+	  } else if ((c * n + r) > 8000000) {
+	    printf("2");
+	  }
           sum += m1[i * n + c] * m2[c * n + r];
         }
 	
@@ -408,6 +414,7 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   }
     
   case M_OclGannet_MAT_add: {
+    printf("ADD\n");
     __global int *m1 = get_arg_value(0, rec, data);
     __global int *m2 = get_arg_value(1, rec, data);
     __global uint *result = get_arg_value(2, rec, data);
@@ -416,21 +423,28 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
 
     for (int row = 0; row < n; row++) {
       for (int col = 0; col < n; col++) {
+	if ((row * n + col) > 8000000) {
+	  printf("3\n");
+	} 
         int sum = m1[row * n + col] + m2[row * n + col];
         *(result + (row * n + col)) = sum;
       }
     }
-
+    
     return result - data;
   }
-
+    
   case M_OclGannet_MAT_unit: {
+    printf("UNIT\n");
     __global uint *m = get_arg_value(0, rec, data);
     __global int *sz = get_arg_value(1, rec, data);
     int n = *sz;
-
+    
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
+        if ((i * n + j) > 8000000) {
+          printf("4\n");
+        } 
         *(m + (i * n + j)) = (i == j) ? 1 : 0;
       }
     }
