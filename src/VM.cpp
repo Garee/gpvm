@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
     
-    int dim = 100; // N rows of a square matrix.
+    int dim = 1024; // N rows of a square matrix.
     
     data[0] = 6;
     data[1] = 256;
