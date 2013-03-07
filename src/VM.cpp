@@ -140,17 +140,17 @@ int main(int argc, char **argv) {
     /* The subtask table. */
     subt *subtaskTable = createSubt();
     
-    long avGlobalMemSize = 32 * 1024 * 1024; // In bytes.
+    long avGlobalMemSize = 256 * 1024 * 1024; // 256MB in bytes.
     long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
     
     /* Each computate unit has its own data array for storing temporary results. [input][data] */
     cl_uint *data = new cl_uint[dataSize];
-    std::cout << "dataSize = " << dataSize << std::endl;
+
     /* Write input data to data buffer. */
     /* :1        :255            :X        :Y
        nargs     narg0..nargN    in/out    scratch */
     
-    int dim = 1024; // N rows of a square matrix.
+    int dim = 100; // N rows of a square matrix.
     
     data[0] = 6;
     data[1] = 256;
@@ -227,9 +227,6 @@ int main(int argc, char **argv) {
       std::cout << "(" << queues[i].x << " " << queues[i].y << ")" << " ";
       }
     std::cout << std::endl; */
-
-    std::cout << data[data[6]] << " " << data[data[6] + 1] << std::endl;
-    std::cout << data[data[6] + 2] << " " << data[data[6] + 3] << std::endl;
     
     /* Cleanup */
     delete[] queues;
