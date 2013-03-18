@@ -3,7 +3,7 @@
 #include "minunit.h"
 
 #define KERNEL_TEST_ENABLED
-#include "../kernels/vm.cl"
+#include "../kernels/VM.cl"
 
 #define N 4 // Number of compute units.
 

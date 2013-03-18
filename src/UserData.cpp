@@ -3,7 +3,7 @@
 
 /* Generate a random number between 0 and max. */
 int randomNumber(int max) {
-return (rand() % (max + 1));
+  return (rand() % (max + 1));
 }
 
 void populateData(cl_uint *data) {
@@ -25,7 +25,7 @@ void populateData(cl_uint *data) {
   
   /* Pointer to scratch memory. */
   data[data[0] + 1] = data[6] + (dim * dim); // Pointer to scratch free/scratch memory.
-  
+
   /* Populate input matrices. */
   for (uint i = data[1]; i < data[2]; i++) {
     data[i] = randomNumber(10);

@@ -29,7 +29,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 test:
-	gcc -std=c99 -I $(INCDIR) tests/vmtest.c -o $(TEST)
+	gcc -w -std=c99 -I $(INCDIR) tests/vmtest.c -o $(TEST)
 	./vmtest
 
 distclean: clean
