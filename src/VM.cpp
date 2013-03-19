@@ -47,12 +47,12 @@ int main(int argc, char **argv) {
     /* Create a vector of available devices (GPU Priority). */
     try {
       /* Use CPU for debugging */
-      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+      // platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
       
       /* Use GPU in practice. */
-      // platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
     } catch (cl::Error error) {
-      //platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+      platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
     }
     
     /* Create a platform context for the available devices. */
