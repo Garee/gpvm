@@ -186,9 +186,14 @@ int main(int argc, char **argv) {
     
     /* Read the modified buffers. */
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
-    
+
+    // Example 1
     std::cout << ((int) data[data[3]]) << " " << ((int) data[data[3] + 1]) << std::endl;
     std::cout << ((int) data[data[3] + 2]) << " " << ((int) data[data[3] + 3]) << std::endl;
+    
+    // Example 2
+    // std::cout << ((int) data[data[6]]) << " " << ((int) data[data[6] + 1]) << std::endl;
+    //std::cout << ((int) data[data[6] + 2]) << " " << ((int) data[data[6] + 3]) << std::endl;
 
     /* Cleanup */
     delete[] queues;

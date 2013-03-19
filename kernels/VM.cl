@@ -422,12 +422,12 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
   }
 
   case M_OclGannet_MEM_ptr: {
-    uint arg1 = get_arg_value(0, rec, data);
+    uint arg1 = (uint) get_arg_value(0, rec, data);
     return data[DATA_INFO_OFFSET + arg1];
   }
-
+    
   case M_OclGannet_MEM_const: {
-    uint arg1 = get_arg_value(0, rec, data);
+    uint arg1 = (uint) get_arg_value(0, rec, data);
     return arg1 + 1;
   }
   }
