@@ -63,6 +63,9 @@ int main(int argc, char **argv) {
     
     /* Get the global memory size (in bytes) of the device. */
     // long globalMemSize = deviceInfo.global_mem_size(device);
+
+    /* Get the max memory allocation size (in bytes) of the device */
+    long maxGlobalAlloc = deviceInfo.global_mem_max_alloc_size(device);
     
     /* Create a command queue for the device. */
     cl::CommandQueue commandQueue = cl::CommandQueue(context, device);
@@ -134,11 +137,10 @@ int main(int argc, char **argv) {
 
     /* The subtask table. */
     subt *subtaskTable = createSubt();
-    
-    long avGlobalMemSize = 256 * 1024 * 1024; // 256MB in bytes.
-    long dataSize = avGlobalMemSize / 4; // How many 32-bit integers?
 
-    /* Each computate unit has its own data array for storing temporary results. [input][data] */
+    long dataSize = maxGlobalAlloc / 4; // How many 32-bit integers?
+    
+    /* The data store */
     cl_uint *data = new cl_uint[dataSize];
     
     /* Users Write/allocate memory on the data buffer. */

@@ -39,6 +39,14 @@ unsigned long DeviceInfo::global_mem_size(const cl::Device& device) {
   return info;
 }
 
+
+unsigned long DeviceInfo::global_mem_max_alloc_size(const cl::Device& device) {
+  cl_ulong info;
+  device.getInfo(infotbl["CL_DEVICE_MAX_MEM_ALLOC_SIZE"].infocode,&info);
+  return info;
+}
+
+
 unsigned int DeviceInfo::max_compute_units(const cl::Device& device) {
   cl_uint info;
   device.getInfo(infotbl["CL_DEVICE_MAX_COMPUTE_UNITS"].infocode,&info);

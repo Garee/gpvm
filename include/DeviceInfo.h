@@ -80,6 +80,7 @@ public:
   };
   
   unsigned long global_mem_size(const cl::Device&);
+  unsigned long global_mem_max_alloc_size(const cl::Device&);
   unsigned int max_compute_units(const cl::Device&);
   unsigned int max_workgroup_size(const cl::Device&);
   bool isGPU(const cl::Device&);
