@@ -97,7 +97,6 @@ bool computation_complete(__global packet *q, int n);
 
 void subt_store_symbol(bytecode payload, uint arg_pos, ushort i, __global subt *subt);
 bool subt_is_ready(ushort i, __global subt *subt);
-__global subt_rec *subt_get_rec(ushort i, __global subt *subt);
 bool subt_push(ushort i, __global subt *subt);
 bool subt_pop(ushort *result, __global subt *subt);
 bool subt_is_full(__global subt *subt);
@@ -106,7 +105,6 @@ void subt_cleanup(ushort i, __global subt *subt);
 ushort subt_top(__global subt *subt);
 void subt_set_top(__global subt *subt, ushort i);
 
-__global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data);
 uint subt_rec_get_service_id(__global subt_rec *r);
 bytecode subt_rec_get_arg(__global subt_rec *r, uint arg_pos);
 uint subt_rec_get_arg_status(__global subt_rec *r, uint arg_pos);
@@ -178,6 +176,38 @@ void pkt_set_sub(packet *p, uint sub);
 void pkt_set_payload_type(packet *p, uint ptype);
 void pkt_set_payload(packet *p, uint payload);
 
+/*
+ * For reasons unknown the following function signatures do not match
+ * those of the function implementation in some systems. It has something
+ * to do with the __global return value. By moving the function implementions
+ * above functions that call them, I avoid requiring a function signature. It is messy
+ * but its the only solution that works - I really don't see the conflict.
+ 
+__global subt_rec *subt_get_rec(ushort i, __global subt *subt);
+__global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data);
+*/
+
+/* Return the subtask record at index i in the subtask table. */
+__global subt_rec *subt_get_rec(ushort i, __global subt *subt) {
+  return &(subt->recs[i]);
+}
+
+/* Get the argument value stored at 'arg_pos' from a subtask record. */
+__global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data) {
+  bytecode symbol = subt_rec_get_arg(rec, arg_pos);
+  uint kind = symbol_get_kind(symbol);
+  uint value = symbol_get_value(symbol);
+
+  if (kind == K_R) {
+    return ((__global void *) symbol);
+  } else if (kind == K_B) {
+    return ((__global void *) value);
+  }
+
+  // K_P symbol - Value is a pointer, actual arg in data buffer.
+  return data + value;
+}
+
 /**************************/
 /******* The Kernel *******/
 /**************************/
@@ -192,7 +222,7 @@ __kernel void vm(__global packet *q,            /* Compute unit queues. */
                  ) {
   if (*state == WRITE) {
     q_transfer(rq, q, n);
-
+    
     /* Synchronise the work items to ensure that all packets have transferred. */
     barrier(CLK_GLOBAL_MEM_FENCE);
 
@@ -238,14 +268,14 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
   case REFERENCE: {
     /* Create a new subtask record */
     uint ref_subtask = parse_subtask(source, arg_pos, subtask, address, q, n, cStore, subt, data);
-
+    
     if (subt_is_ready(ref_subtask, subt)) {
       /* Perform the computation. */
       uint result = service_compute(subt, ref_subtask, data);
-
+      
       /* Create a new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), arg_pos, subtask, result);
-
+      
       /* Send the result back to the compute unit that sent the reference request. */
       q_write(p, source, q, n);
 
@@ -273,7 +303,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
       if (return_to == (n + 1)) {
         break;
       }
-
+      
       /* Create and send new packet containing the computation results. */
       packet p = pkt_create(DATA, get_global_id(0), return_as_pos, return_as_addr, result);
       q_write(p, return_to, q, n);
@@ -417,7 +447,7 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
         *(m + (i * n + j)) = (i == j) ? 1 : 0;
       }
     }
-
+    
     return m - data;
   }
 
@@ -454,10 +484,7 @@ bool subt_is_ready(ushort i, __global subt *subt) {
   return subt_rec_get_nargs_absent(rec) == 0;
 }
 
-/* Return the subtask record at index i in the subtask table. */
-__global subt_rec *subt_get_rec(ushort i, __global subt *subt) {
-  return &(subt->recs[i]);
-}
+
 
 /* Remove the subtask record at index i from the subtask table and return
    it to the stack of available records. */
@@ -465,7 +492,7 @@ bool subt_push(ushort i, __global subt *subt) {
   if (subt_is_empty(subt)) {
     return false;
   }
-
+  
   ushort top = subt_top(subt);
   subt->av_recs[top - 1] = i;
   subt_set_top(subt, top - 1);
@@ -512,22 +539,6 @@ void subt_set_top(__global subt *subt, ushort i) {
 /**********************************/
 /**** Subtask Record Functions ****/
 /**********************************/
-
-/* Get the argument value stored at 'arg_pos' from a subtask record. */
-__global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint *data) {
-  bytecode symbol = subt_rec_get_arg(rec, arg_pos);
-  uint kind = symbol_get_kind(symbol);
-  uint value = symbol_get_value(symbol);
-
-  if (kind == K_R) {
-    return ((__global void *) symbol);
-  } else if (kind == K_B) {
-    return ((__global void *) value);
-  }
-
-  // K_P symbol - Value is a pointer, actual arg in data buffer.
-  return data + value;
-}
 
 /* Get the subtask record service id. */
 uint subt_rec_get_service_id(__global subt_rec *r) {
