@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
   try {
     /* Create a vector of available platforms. */
     cl::Platform::get(&platforms);
-
+    
     /* Create a vector of available devices (GPU Priority). */
     try {
       /* Use CPU for debugging */
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     
     /* Build the program for the available devices. */
     program.build(devices, KERNEL_BUILD_OPTIONS);
-
+    
     /* Create the kernel. */
     cl::Kernel kernel(program, KERNEL_NAME);
     
@@ -184,14 +184,10 @@ int main(int argc, char **argv) {
     
     commandQueue.finish();
     
-    /* Read the modified buffers. */
+    /* Read the results. */
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
-
-    // Example 1
-    //std::cout << ((int) data[data[3]]) << " " << ((int) data[data[3] + 1]) << std::endl;
-    //std::cout << ((int) data[data[3] + 2]) << " " << ((int) data[data[3] + 3]) << std::endl;
     
-    // Example 2
+    // Print resulting matrix from example 4. MODIFY ME!!
     std::cout << ((int) data[data[6]]) << " " << ((int) data[data[6] + 1]) << std::endl;
     std::cout << ((int) data[data[6] + 2]) << " " << ((int) data[data[6] + 3]) << std::endl;
 
@@ -210,6 +206,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
+/* Toggles the state between read and write until it is set to complete by the virtual machine. */
 void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *state) {
   commandQueue.enqueueReadBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
   if (*state == COMPLETE) return;
@@ -218,6 +215,7 @@ void toggleState(cl::CommandQueue& commandQueue, cl::Buffer& stateBuffer, int *s
   commandQueue.finish();
 }
 
+/* Create and initialise a subtask table. */
 subt *createSubt() {
   subt *table = new subt;
 
@@ -233,7 +231,7 @@ subt *createSubt() {
   return table;
 }
 
-
+/* Validate the command line arguments. */
 void validateArguments(int argc) {
   if (argc < NARGS) {
     std::cout << "Usage: ./vm [bytecode-file] [n-services]" << std::endl;
@@ -241,10 +239,11 @@ void validateArguments(int argc) {
   }
 }
 
+/* Read the bytecode from file and place it in a queue of words. */
 std::deque<bytecode> readBytecode(char *bytecodeFile) {
   std::ifstream f(bytecodeFile);
   std::deque<bytecode> bytecodeWords;
-
+  
   if (f.is_open()) {
     while (f.good()) {
       bytecode word = 0;
@@ -259,6 +258,7 @@ std::deque<bytecode> readBytecode(char *bytecodeFile) {
   return bytecodeWords;
 }
 
+/* Group the bytecode words into packets of service calls. */
 std::deque< std::deque<bytecode> > words2Packets(std::deque<bytecode>& bytecodeWords) {
   int nPackets = bytecodeWords.front() >> NPACKET_SHIFT; bytecodeWords.pop_front();
   std::deque< std::deque<bytecode> > packets;
