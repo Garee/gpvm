@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
     
     cl::Buffer stateBuffer = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int));
     commandQueue.enqueueWriteBuffer(stateBuffer, CL_TRUE, 0, sizeof(int), state);
-
+    
     cl::Buffer codeStoreBuffer = cl::Buffer(context, CL_MEM_READ_ONLY, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode));
     commandQueue.enqueueWriteBuffer(codeStoreBuffer, CL_TRUE, 0, CODE_STORE_SIZE * QUEUE_SIZE * sizeof(bytecode), codeStore);
     
@@ -188,12 +188,12 @@ int main(int argc, char **argv) {
     commandQueue.enqueueReadBuffer(dataBuffer, CL_TRUE, 0, dataSize * sizeof(cl_uint), data);
 
     // Example 1
-    std::cout << ((int) data[data[3]]) << " " << ((int) data[data[3] + 1]) << std::endl;
-    std::cout << ((int) data[data[3] + 2]) << " " << ((int) data[data[3] + 3]) << std::endl;
+    //std::cout << ((int) data[data[3]]) << " " << ((int) data[data[3] + 1]) << std::endl;
+    //std::cout << ((int) data[data[3] + 2]) << " " << ((int) data[data[3] + 3]) << std::endl;
     
     // Example 2
-    // std::cout << ((int) data[data[6]]) << " " << ((int) data[data[6] + 1]) << std::endl;
-    //std::cout << ((int) data[data[6] + 2]) << " " << ((int) data[data[6] + 3]) << std::endl;
+    std::cout << ((int) data[data[6]]) << " " << ((int) data[data[6] + 1]) << std::endl;
+    std::cout << ((int) data[data[6] + 2]) << " " << ((int) data[data[6] + 3]) << std::endl;
 
     /* Cleanup */
     delete[] queues;
@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
     std::cout << "EXCEPTION: " << error.what() << " [" << error.err() << "]" << std::endl;
     std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
   }
-
+  
   return 0;
 }
 

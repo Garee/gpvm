@@ -375,14 +375,14 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     __global uint *result = get_arg_value(2, rec, data);
     __global int *sz = get_arg_value(3, rec, data);
     
-    int n = 2;
+    int n = *sz;
     for (int i = 0; i < n; i++) {
       for (int r = 0; r < n; r++) {
         int sum = 0;
         for (int c = 0; c < n; c++) {
           sum += m1[i * n + c] * m2[c * n + r];
         }
-
+	
         *(result + (i * n + r)) = sum;
       }
     }

@@ -7,7 +7,7 @@ int randomNumber(int max) {
   return (rand() % (max + 1));
 }
 
-void populateData(cl_uint *data) {
+void populateData2(cl_uint *data) {
   /* Initialise seed for random number generation. */
   srand(1);
   
@@ -46,7 +46,7 @@ void populateData(cl_uint *data) {
   data[data[2] + 3] = 1;
 }
 
-void populateData2(cl_uint *data) {
+void populateData(cl_uint *data) {
   /* Initialise seed for random number generation. */
   srand(1);
 
