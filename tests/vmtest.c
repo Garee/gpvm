@@ -67,7 +67,11 @@ void subt_destroy(subt *subt) {
   free(subt);
 }
 
-/* Unit Tests */
+
+/********************/
+/**** Unit Tests ****/
+/********************/
+
 static char *test_pkt_get_type() {
   packet p = pkt_create(REFERENCE, 1, 2, 3, 4);
   mu_assert("FAIL: test_pkt_get_type [1]", pkt_get_type(p) == REFERENCE);

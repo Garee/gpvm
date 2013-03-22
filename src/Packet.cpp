@@ -1,3 +1,5 @@
+/* Packet functions are needed in both the host and kernel program. The purpose
+ * of this file to provide the functions to the host */
 #include "Packet.h"
 
 /* Return a completely empty packet with all bits set to zero. */

@@ -1,3 +1,5 @@
+/* As a user you are required to implement the populateData(cl_uint *data) function
+   which is used to populate the data store with input data and allocate memory for results. */
 #include "UserData.h"
 #include <ctime>
 #include <iostream>
@@ -7,45 +9,7 @@ int randomNumber(int max) {
   return (rand() % (max + 1));
 }
 
-void populateData2(cl_uint *data) {
-  /* Initialise seed for random number generation. */
-  srand(1);
-  
-  int dim = 2; // N rows of a square matrix.
-  
-  /* Total number of memory sections allocated. */
-  data[0] = 3;
-  
-  /* Pointers to allocated memory. */
-  data[1] = 256;
-  data[2] = data[1] + (dim * dim);
-  data[3] = data[2] + (dim * dim);
-  
-  /* Pointer to scratch memory. */
-  data[data[0] + 1] = data[3] + (dim * dim); // Pointer to scratch free/scratch memory.
-  
-  /* Populate input matrices. */
-  /*
-    for (uint i = data[1]; i < data[2]; i++) {
-    data[i] = randomNumber(10);
-    }
-  
-    for (uint i = data[2]; i < data[3]; i++) {
-    data[i] = randomNumber(10);
-    }
-  */
-  
-  data[data[1]] = 1;
-  data[data[1] + 1] = 2;
-  data[data[1] + 2] = -3;
-  data[data[1] + 3] = 11;
-  
-  data[data[2]] = -2;
-  data[data[2] + 1] = 4;
-  data[data[2] + 2] = 7;
-  data[data[2] + 3] = 1;
-}
-
+/* Populates the data store with the data needed for execute example 4. */
 void populateData(cl_uint *data) {
   /* Initialise seed for random number generation. */
   srand(1);
@@ -68,11 +32,11 @@ void populateData(cl_uint *data) {
 
   /* Populate input matrices. */
   /*
-  for (uint i = data[1]; i < data[2]; i++) {
+    for (uint i = data[1]; i < data[2]; i++) {
     data[i] = randomNumber(10);
-  }
-  
-  for (uint i = data[2]; i < data[3]; i++) {
+    }
+
+    for (uint i = data[2]; i < data[3]; i++) {
     data[i] = randomNumber(10);
     }
   */
@@ -81,11 +45,39 @@ void populateData(cl_uint *data) {
   data[data[1] + 1] = 2;
   data[data[1] + 2] = -3;
   data[data[1] + 3] = 11;
-  
+
   data[data[2]] = -2;
   data[data[2] + 1] = 4;
   data[data[2] + 2] = 7;
   data[data[2] + 3] = 1;
 }
 
+/* Replace populateData with this one to run example 1. */
+void example_populateData(cl_uint *data) {
+  /* Initialise seed for random number generation. */
+  srand(1);
+  
+  int dim = 1024; // N rows of a square matrix.
+  
+  /* Total number of memory sections allocated. */
+  data[0] = 3;
+  
+  /* Pointers to allocated memory. */
+  data[1] = 256;
+  data[2] = data[1] + (dim * dim);
+  data[3] = data[2] + (dim * dim);
+  
+  /* Pointer to scratch memory. */
+  data[data[0] + 1] = data[3] + (dim * dim); // Pointer to scratch free/scratch memory.
+  
+  /* Populate input matrices. */
+  
+  for (uint i = data[1]; i < data[2]; i++) {
+    data[i] = randomNumber(10);
+  }
+  
+  for (uint i = data[2]; i < data[3]; i++) {
+    data[i] = randomNumber(10);
+  }
+}
 

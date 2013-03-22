@@ -197,7 +197,7 @@ __global void *get_arg_value(uint arg_pos, __global subt_rec *rec, __global uint
   bytecode symbol = subt_rec_get_arg(rec, arg_pos);
   uint kind = symbol_get_kind(symbol);
   uint value = symbol_get_value(symbol);
-
+  
   if (kind == K_R) {
     return ((__global void *) symbol);
   } else if (kind == K_B) {
@@ -284,7 +284,7 @@ void parse_pkt(packet p, __global packet *q, int n, __global bytecode *cStore, _
     }
     break;
   }
-
+    
   case DATA:
     /* Store the data in the subtask record. */
     subt_store_symbol(SYMBOL_KP_ZERO + address, arg_pos, subtask, subt);
@@ -426,7 +426,7 @@ uint service_compute(__global subt* subt, uint subtask, __global uint *data) {
     __global uint *result = get_arg_value(2, rec, data);
     __global int *sz = get_arg_value(3, rec, data);
     int n = *sz;
-
+    
     for (int row = 0; row < n; row++) {
       for (int col = 0; col < n; col++) {
         int sum = m1[row * n + col] + m2[row * n + col];
