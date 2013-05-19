@@ -1,7 +1,7 @@
-VM
+GPVM
 ==
 
-VM is a parallel virtual machine implemented on a GPU using OpenCL.
+GPVM is a parallel Gannet virtual machine implementation using OpenCL for GPU execution.
 
 Obtaining the Source Code
 -------------------------
@@ -76,23 +76,21 @@ A user must complete the following steps to run a program within the virtual mac
 input bytecode.
 5. Provide any input data and allocate memory for results.
 
-Service Implementations
-=======================
+### Service Implementations
 
 All services are implemented within the service compute function in the file kernels/VM.cl. To add a service,
 provide an additional case to the case statement using the associated service opcode and implement the service
 in the new block.
 
-Input/Output Data
-=================
+### Input/Output Data
 
 Inputs and outputs are handled by the data store. Read the relevant section in Chapter 4 for details on how
 to use the data store. Using this information, implement the populateData(...) function that is located within
 src/UserData.cpp. Example implementations have been provided. You will likely be using the provided ptr and
 const services within your task description program to access your data.
 
-Important Files
-===============
+### Important Files
+
 * src/VM.cpp - The host program, access your results here.
 * src/UserData.cpp - Contains the populateData(...) function which is used to populate the data store with
 input data.
