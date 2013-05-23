@@ -235,7 +235,7 @@ subt *createSubt() {
 
 /* Validate the command line arguments. */
 void validateArguments(int argc) {
-  if (argc < NARGS) {
+  if (argc != NARGS) {
     std::cout << "Usage: ./vm [bytecode-file] [n-services]" << std::endl;
     exit(EXIT_FAILURE);
   }
