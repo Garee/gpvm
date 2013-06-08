@@ -9,14 +9,14 @@ The source code for the virtual machine is maintained using git and can be obtai
 repository located at:
 
 <pre>
-https://github.com/Garee/vm
+https://github.com/Garee/gpvm
 </pre>
 
 With git installed, enter the following command at a terminal to clone the repository in the current working
 directory:
 
 <pre>
-git clone https://github.com/Garee/vm.git
+git clone https://github.com/Garee/gpvm.git
 </pre>
 
 Compiling the program
