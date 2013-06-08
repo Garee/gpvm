@@ -81,8 +81,7 @@ in the new block.
 
 ### Input/Output Data
 
-Inputs and outputs are handled by the data store. Read the relevant section in Chapter 4 for details on how
-to use the data store. Using this information, implement the populateData(...) function that is located within
+Inputs and outputs are handled by the data store. Implement the populateData(...) function that is located within
 src/UserData.cpp. Example implementations have been provided. You will likely be using the provided ptr and
 const services within your task description program to access your data.
 
