@@ -55,9 +55,6 @@ Usage: ./vm [bytecode-file] [n-services]
 
 Running the example
 -------------------
-The source code has been submitted in a state which allows the task description program in listing 5.4 to be
-executed. It can be used to verify the answer to test case 2 in chapter 5.
-
 <pre>
 ./vm examples/4/test_ocl_gannet_4.tdc64 6
 </pre>
