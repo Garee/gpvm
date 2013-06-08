@@ -1,7 +1,7 @@
-GPVM
+VM
 ==
 
-GPVM is a parallel Gannet virtual machine implementation using OpenCL for GPU execution.
+VM is a parallel virtual machine implemented on a GPU using OpenCL.
 
 Obtaining the Source Code
 -------------------------
@@ -9,14 +9,14 @@ The source code for the virtual machine is maintained using git and can be obtai
 repository located at:
 
 <pre>
-https://github.com/Garee/gpvm
+https://github.com/Garee/vm
 </pre>
 
 With git installed, enter the following command at a terminal to clone the repository in the current working
 directory:
 
 <pre>
-git clone https://github.com/Garee/gpvm.git
+git clone https://github.com/Garee/vm.git
 </pre>
 
 Compiling the program
@@ -55,6 +55,9 @@ Usage: ./vm [bytecode-file] [n-services]
 
 Running the example
 -------------------
+The source code has been submitted in a state which allows the task description program in listing 5.4 to be
+executed. It can be used to verify the answer to test case 2 in chapter 5.
+
 <pre>
 ./vm examples/4/test_ocl_gannet_4.tdc64 6
 </pre>
@@ -73,20 +76,23 @@ A user must complete the following steps to run a program within the virtual mac
 input bytecode.
 5. Provide any input data and allocate memory for results.
 
-### Service Implementations
+Service Implementations
+=======================
 
 All services are implemented within the service compute function in the file kernels/VM.cl. To add a service,
 provide an additional case to the case statement using the associated service opcode and implement the service
 in the new block.
 
-### Input/Output Data
+Input/Output Data
+=================
 
-Inputs and outputs are handled by the data store. Implement the populateData(...) function that is located within
+Inputs and outputs are handled by the data store. Read the relevant section in Chapter 4 for details on how
+to use the data store. Using this information, implement the populateData(...) function that is located within
 src/UserData.cpp. Example implementations have been provided. You will likely be using the provided ptr and
 const services within your task description program to access your data.
 
-### Important Files
-
+Important Files
+===============
 * src/VM.cpp - The host program, access your results here.
 * src/UserData.cpp - Contains the populateData(...) function which is used to populate the data store with
 input data.
