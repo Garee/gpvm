@@ -1,7 +1,7 @@
 GPVM
 ==
 
-GPVM is a parallel Gannet virtual machine implementation using OpenCL for GPU execution.
+The Gannet Parallel Virtual Machine (GPVM) is a virtual machine that is designed to execute natively on graphics processing units. Using OpenCL, it virtualises the Gannet System-on-Chip architecture to provide a functional approach to high-level GPGPU programming.
 
 Obtaining the Source Code
 -------------------------
